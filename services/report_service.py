@@ -2,10 +2,21 @@ from __future__ import annotations
 
 import base64
 from io import BytesIO
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+LOGO_PATH = ROOT / "assets" / "center_logo.png"
 
 
 def _img_data(png_bytes: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+
+
+def _logo_data() -> str:
+    if not LOGO_PATH.exists():
+        return ""
+    return _img_data(LOGO_PATH.read_bytes())
 
 
 def build_report_html(data: dict, hr_graph: bytes, lactate_graph: bytes | None) -> str:
@@ -13,30 +24,26 @@ def build_report_html(data: dict, hr_graph: bytes, lactate_graph: bytes | None) 
     lactates = data.get("lactates", [])
     zones = data.get("zones", [])
 
+    stage_count = max(len(stages), 1)
+    table_body_height_mm = 64.0
+    stage_row_height_mm = table_body_height_mm / stage_count
+    zone_row_height_mm = table_body_height_mm / 5.0
+    stage_font_pt = max(7.4, min(9.5, 9.8 - max(stage_count - 7, 0) * 0.28))
+
     stage_rows = "".join(
         f"<tr><td>{s['stage']}</td><td>{s['hr_range']}</td><td>{s['hr_mean']}</td><td>{s['zone']}</td></tr>"
         for s in stages
     )
-
     zone_rows = "".join(
         f"<tr><td>{z['name']}</td><td>{z['pct']}</td><td>{z['range']}</td></tr>"
         for z in zones
     )
 
-    lactate_cells = "".join(
-        f"<th>{p['label']}</th>"
-        for p in lactates
-        if p.get("lactate") is not None
-    )
-
-    lactate_values = "".join(
-        f"<td>{float(p['lactate']):.2f}</td>"
-        for p in lactates
-        if p.get("lactate") is not None
-    )
+    visible_lactates = [p for p in lactates if p.get("lactate") is not None]
+    lactate_cells = "".join(f"<th>{p['label']}</th>" for p in visible_lactates)
+    lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in visible_lactates)
 
     lt_blocks = ""
-
     for key in ("lt1", "lt2"):
         item = data.get(key)
         if not item or not item.get("show"):
@@ -63,131 +70,119 @@ def build_report_html(data: dict, hr_graph: bytes, lactate_graph: bytes | None) 
         else ""
     )
 
+    logo_src = _logo_data()
+    logo_html = f"<img class='page-logo' src='{logo_src}'>" if logo_src else ""
+
     return f"""<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <style>
 @page {{ size: A4 portrait; margin: 8mm; }}
-
 * {{ box-sizing: border-box; }}
-
 body {{
   margin: 0;
-  font-family: 'Noto Sans CJK KR', 'Noto Sans KR', sans-serif;
+  font-family: 'Noto Sans CJK KR', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   color: #111;
-  font-size: 10pt;
+  font-size: 9.6pt;
 }}
-
 .page {{
   width: 194mm;
   height: 281mm;
   page-break-after: always;
   overflow: hidden;
-  padding: 1mm 2mm;
+  padding: 0 2mm 1mm;
   display: flex;
   flex-direction: column;
 }}
-
-.page:last-child {{
-  page-break-after: auto;
+.page:last-child {{ page-break-after: auto; }}
+.brand-row {{
+  height: 9mm;
+  flex: 0 0 9mm;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }}
-
+.page-logo {{
+  width: 94mm;
+  max-height: 7.2mm;
+  object-fit: contain;
+  object-position: right center;
+}}
 h1 {{
-  font-size: 20pt;
+  font-size: 19pt;
   text-align: center;
-  margin: 3mm 0 2mm;
+  margin: 0 0 1.5mm;
+  line-height: 1.15;
   color: #14376b;
 }}
-
 h2 {{
-  font-size: 12pt;
-  margin: 2mm 0 1mm;
-  border-bottom: 1.4px solid #111;
-  padding-bottom: 1mm;
+  font-size: 11.3pt;
+  margin: 1.5mm 0 0.7mm;
+  border-bottom: 1.2px solid #111;
+  padding-bottom: 0.6mm;
+  line-height: 1.1;
 }}
-
-h3 {{
-  font-size: 11pt;
-  margin: 1mm 0;
-}}
-
-table {{
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}}
-
+h3 {{ font-size: 10.5pt; margin: 1mm 0; }}
+table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
 th, td {{
   border: 0.7px solid #555;
-  padding: 1.2mm 1mm;
+  padding: 0.8mm 0.8mm;
   text-align: center;
   vertical-align: middle;
+  line-height: 1.12;
 }}
-
-th {{
-  background: #f2f2f2;
-  font-weight: 700;
-}}
-
-.info td.label {{
-  background: #f2f2f2;
-  font-weight: 700;
-  width: 14%;
-}}
-
-.grid-two {{
+th {{ background: #f2f2f2; font-weight: 700; }}
+.info {{ flex: 0 0 auto; }}
+.info td {{ height: 7.2mm; }}
+.info td.label {{ background: #f2f2f2; font-weight: 700; width: 14%; }}
+.hr-table-area {{
+  height: 72mm;
+  flex: 0 0 72mm;
   display: grid;
   grid-template-columns: 1.55fr 1fr;
   gap: 2mm;
-  min-height: 72mm;
+  align-items: stretch;
 }}
-
-.stage-table tbody tr {{
-  height: calc(58mm / max(1, var(--stage-count)));
-}}
-
+.hr-table-area table {{ height: 72mm; }}
+.hr-table-area thead tr {{ height: 8mm; }}
+.stage-table {{ font-size: {stage_font_pt:.2f}pt; }}
+.stage-table tbody tr {{ height: {stage_row_height_mm:.3f}mm; }}
+.zone-table tbody tr {{ height: {zone_row_height_mm:.3f}mm; }}
 .graph-wrap {{
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  margin-top: 1.3mm;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  margin-top: 2mm;
+  overflow: hidden;
 }}
-
 .hr-graph {{
   width: 100%;
-  max-height: 112mm;
+  height: 100%;
+  max-height: 106mm;
   object-fit: contain;
+  object-position: center bottom;
 }}
-
-.lactate-table th,
-.lactate-table td {{
-  padding: 2mm 1mm;
+.page-2 h2 {{ margin-top: 1.2mm; }}
+.lactate-table th, .lactate-table td {{
+  padding: 1.8mm 0.7mm;
+  font-size: 8.8pt;
 }}
-
 .lactate-graph {{
   width: 100%;
-  max-height: 112mm;
+  height: 112mm;
   object-fit: contain;
-  margin: 2mm 0;
+  margin: 2mm 0 1mm;
 }}
-
-.lt-block {{
-  border-top: 1px solid #555;
-  padding-top: 2mm;
-  margin-top: 2mm;
-}}
-
-.lt-block p {{
-  margin: 1mm 0;
-  line-height: 1.55;
-}}
+.lt-block {{ border-top: 1px solid #555; padding-top: 1.5mm; margin-top: 1.5mm; }}
+.lt-block p {{ margin: 0.7mm 0; line-height: 1.48; }}
 </style>
 </head>
 <body>
-<section class="page" style="--stage-count:{max(len(stages), 1)}">
+<section class="page page-1">
+  <div class="brand-row">{logo_html}</div>
   <h1>차세대스포츠과학지원센터 체력측정 결과</h1>
 
   <h2>선수 정보</h2>
@@ -220,34 +215,27 @@ th {{
   </table>
 
   <h2>심박수(beats/min)</h2>
-  <div class="grid-two">
+  <div class="hr-table-area">
     <table class="stage-table">
-      <thead>
-        <tr><th>Stage</th><th>HR range</th><th>HR mean</th><th>주요 Zone</th></tr>
-      </thead>
+      <thead><tr><th>Stage</th><th>HR range</th><th>HR mean</th><th>주요 Zone</th></tr></thead>
       <tbody>{stage_rows}</tbody>
     </table>
-
-    <table>
-      <thead>
-        <tr><th>Zone</th><th>%HRmax</th><th>HR range</th></tr>
-      </thead>
+    <table class="zone-table">
+      <thead><tr><th>Zone</th><th>%HRmax</th><th>HR range</th></tr></thead>
       <tbody>{zone_rows}</tbody>
     </table>
   </div>
 
-  <div class="graph-wrap">
-    <img class="hr-graph" src="{_img_data(hr_graph)}">
-  </div>
+  <div class="graph-wrap"><img class="hr-graph" src="{_img_data(hr_graph)}"></div>
 </section>
 
-<section class="page">
+<section class="page page-2">
+  <div class="brand-row">{logo_html}</div>
   <h2>혈중 젖산염(mmol/L)</h2>
   <table class="lactate-table">
     <tr>{lactate_cells}</tr>
     <tr>{lactate_values}</tr>
   </table>
-
   {lactate_img}
   {lt_blocks}
 </section>
@@ -259,5 +247,5 @@ def html_to_pdf(html: str) -> bytes:
     from weasyprint import HTML
 
     output = BytesIO()
-    HTML(string=html).write_pdf(output)
+    HTML(string=html, base_url=str(ROOT)).write_pdf(output)
     return output.getvalue()
