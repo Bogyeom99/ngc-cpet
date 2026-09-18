@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import html
 from io import BytesIO
 from pathlib import Path
 
@@ -19,53 +20,69 @@ def _logo_data() -> str:
     return _img_data(LOGO_PATH.read_bytes())
 
 
-def build_report_html(data: dict, basic_graph: bytes, lactate_graph: bytes | None, combined_graph: bytes | None) -> str:
+def _text_html(value: str) -> str:
+    return html.escape(value or "").replace("\n", "<br>")
+
+
+def build_report_html(
+    data: dict,
+    basic_graph: bytes,
+    lactate_graph: bytes | None,
+    combined_graph: bytes | None,
+) -> str:
     stages = data.get("stages", [])
-    lactates = data.get("lactates", [])
     zones = data.get("zones", [])
+    lactates = [p for p in data.get("lactates", []) if p.get("lactate") is not None]
 
     stage_count = max(len(stages), 1)
-    table_body_height_mm = 64.0
-    stage_row_height_mm = table_body_height_mm / stage_count
-    zone_row_height_mm = table_body_height_mm / 5.0
-    stage_font_pt = max(7.4, min(9.5, 9.8 - max(stage_count - 7, 0) * 0.28))
+    body_height_mm = 70.0
+    stage_row_height_mm = body_height_mm / stage_count
+    zone_row_height_mm = body_height_mm / 5.0
+    stage_font_pt = max(7.5, min(9.4, 9.5 - max(stage_count - 8, 0) * 0.22))
+
+    zone_colors = {
+        "Z1": "#B9E7B6",
+        "Z2": "#FFE08A",
+        "Z3": "#FFBE45",
+        "Z4": "#FF634D",
+        "Z5": "#C20F1A",
+    }
 
     stage_rows = "".join(
-        f"<tr><td>{s['stage']}</td><td>{s['hr_range']}</td><td>{s['hr_mean']}</td><td>{s['zone']}</td></tr>"
+        (
+            "<tr>"
+            f"<td>{html.escape(str(s['stage']))}</td>"
+            f"<td>{html.escape(str(s['hr_range']))}</td>"
+            f"<td>{html.escape(str(s['hr_mean']))}</td>"
+            "<td class='zone-main'>"
+            f"<span class='zone-chip' style='background:{zone_colors.get(s['zone'], '#D9D9D9')}'></span>"
+            f"{html.escape(str(s['zone']))}</td>"
+            "</tr>"
+        )
         for s in stages
     )
+
     zone_rows = "".join(
-        f"<tr><td>{z['name']}</td><td>{z['pct']}</td><td>{z['range']}</td></tr>"
-        for z in zones
+        (
+            "<tr>"
+            "<td class='zone-main'>"
+            f"<span class='zone-chip' style='background:{zone_colors.get('Z' + str(i), '#D9D9D9')}'></span>"
+            f"{html.escape(str(z['name']))}</td>"
+            f"<td>{html.escape(str(z['pct']))}</td>"
+            f"<td>{html.escape(str(z['range']))}</td>"
+            "</tr>"
+        )
+        for i, z in enumerate(zones, start=1)
     )
 
-    visible_lactates = [p for p in lactates if p.get("lactate") is not None]
-    lactate_cells = "".join(f"<th>{p['label']}</th>" for p in visible_lactates)
-    lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in visible_lactates)
+    lactate_headers = "".join(f"<th>{html.escape(str(p['label']))}</th>" for p in lactates)
+    lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in lactates)
 
-    lt_blocks = ""
-    for key in ("lt1", "lt2"):
-        item = data.get(key)
-        if not item or not item.get("show"):
-            continue
-
-        if item.get("valid"):
-            lt_blocks += f"""
-            <section class="lt-block">
-              <h3>{item['name']} 분석 결과</h3>
-              <p>{item['name']} 지점은 <strong>{item['load']:.2f} {data['load_unit']}</strong>로 산출되었습니다.
-              HR 그래프와 역치선의 교차 지점은 약 <strong>{item['hr']} bpm</strong>이며,
-              최대심박수 대비 약 <strong>{item['pct_hrmax']:.0f}%</strong>입니다.</p>
-            </section>
-            """
-        else:
-            lt_blocks += (
-                f"<section class='lt-block'><h3>{item['name']} 분석 결과</h3>"
-                f"<p>산출 불가: {item['reason']}</p></section>"
-            )
+    logo_src = _logo_data()
+    logo_html = f"<img class='page-logo' src='{logo_src}'>" if logo_src else ""
 
     lactate_img = (
-        f"<img class='lactate-graph' src='{_img_data(lactate_graph)}'>"
+        f"<img class='lactate-only-graph' src='{_img_data(lactate_graph)}'>"
         if lactate_graph
         else ""
     )
@@ -75,192 +92,396 @@ def build_report_html(data: dict, basic_graph: bytes, lactate_graph: bytes | Non
         else ""
     )
 
-    logo_src = _logo_data()
-    logo_html = f"<img class='page-logo' src='{logo_src}'>" if logo_src else ""
+    lt1_block = ""
+    if data.get("lt1", {}).get("show"):
+        lt1_block = f"""
+        <div class="lt-section">
+          <div class="lt-title">LT1 분석 결과 (제1젖산역치; 유산소 대사)</div>
+          <div class="editable-text">{_text_html(data.get("lt1_comment", ""))}</div>
+        </div>
+        """
+
+    lt2_block = ""
+    if data.get("lt2", {}).get("show"):
+        lt2_block = f"""
+        <div class="lt-section lt2-section">
+          <div class="lt-title">LT2 분석 결과 (제2젖산역치; 무산소 대사)</div>
+          <div class="editable-text">{_text_html(data.get("lt2_comment", ""))}</div>
+        </div>
+        """
 
     return f"""<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
 <style>
-@page {{ size: A4 portrait; margin: 8mm; }}
+@page {{ size: A4 portrait; margin: 0; }}
 * {{ box-sizing: border-box; }}
+html, body {{ margin: 0; padding: 0; background: #fff; }}
 body {{
-  margin: 0;
   font-family: 'Noto Sans CJK KR', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   color: #111;
-  font-size: 9.6pt;
+  font-size: 9.2pt;
 }}
 .page {{
-  width: 194mm;
-  height: 281mm;
-  page-break-after: always;
+  width: 210mm;
+  height: 297mm;
+  padding: 10mm 18mm 9mm 18mm;
   overflow: hidden;
-  padding: 0 2mm 1mm;
-  display: flex;
-  flex-direction: column;
+  page-break-after: always;
+  background: #fff;
 }}
 .page:last-child {{ page-break-after: auto; }}
-.brand-row {{
-  height: 9mm;
-  flex: 0 0 9mm;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-}}
 .page-logo {{
-  width: 94mm;
-  max-height: 7.2mm;
+  display: block;
+  width: 82mm;
+  max-height: 9mm;
   object-fit: contain;
   object-position: right center;
 }}
-h1 {{
-  font-size: 19pt;
+.page1-logo {{
+  margin-left: auto;
+  margin-bottom: 2.2mm;
+}}
+.main-title {{
+  color: #123A79;
+  font-size: 20.5pt;
+  font-weight: 800;
   text-align: center;
-  margin: 0 0 1.5mm;
-  line-height: 1.15;
-  color: #14376b;
+  line-height: 1.0;
+  margin: 0 0 3.0mm 0;
 }}
-h2 {{
-  font-size: 11.3pt;
-  margin: 1.5mm 0 0.7mm;
-  border-bottom: 1.2px solid #111;
-  padding-bottom: 0.6mm;
-  line-height: 1.1;
+.section-line {{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 6mm;
+  margin-top: 0.5mm;
 }}
-h3 {{ font-size: 10.5pt; margin: 1mm 0; }}
-table {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
-th, td {{
-  border: 0.7px solid #555;
-  padding: 0.8mm 0.8mm;
+.section-title {{
+  font-size: 11.7pt;
+  font-weight: 800;
+  line-height: 1;
+}}
+.section-right {{
+  font-size: 9.4pt;
+  line-height: 1;
+}}
+.data-table {{
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0;
+}}
+.data-table th,
+.data-table td {{
+  border-top: 0.55px solid #4F4F4F;
+  border-bottom: 0.55px solid #4F4F4F;
+  border-left: 0.45px solid #777;
+  border-right: 0.45px solid #777;
   text-align: center;
   vertical-align: middle;
-  line-height: 1.12;
+  padding: 0.5mm 0.6mm;
+  line-height: 1.05;
 }}
-th {{ background: #f2f2f2; font-weight: 700; }}
-.info {{ flex: 0 0 auto; }}
-.info td {{ height: 7.2mm; }}
-.info td.label {{ background: #f2f2f2; font-weight: 700; width: 14%; }}
-.hr-table-area {{
-  height: 72mm;
-  flex: 0 0 72mm;
+.data-table th {{
+  background: #F2F2F2;
+  font-weight: 700;
+}}
+.info-table td {{
+  height: 6.2mm;
+}}
+.info-label {{
+  background: #F2F2F2;
+  font-weight: 700;
+}}
+.measure-table td {{
+  height: 6.8mm;
+}}
+.hr-title {{
+  font-size: 12pt;
+  font-weight: 800;
+  margin: 2.0mm 0 0.8mm 0;
+  line-height: 1;
+}}
+.hr-grid {{
+  width: 100%;
+  height: 79mm;
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
-  gap: 2mm;
-  align-items: stretch;
+  grid-template-columns: 62% 38%;
+  gap: 0;
 }}
-.hr-table-area table {{ height: 72mm; }}
-.hr-table-area thead tr {{ height: 8mm; }}
-.stage-table {{ font-size: {stage_font_pt:.2f}pt; }}
-.stage-table tbody tr {{ height: {stage_row_height_mm:.3f}mm; }}
-.zone-table tbody tr {{ height: {zone_row_height_mm:.3f}mm; }}
-.graph-wrap {{
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-top: 1.3mm;
+.hr-grid table {{
+  width: 100%;
+  height: 79mm;
+  border-collapse: collapse;
+  table-layout: fixed;
+}}
+.hr-grid th,
+.hr-grid td {{
+  border: 0.5px solid #555;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0.3mm 0.35mm;
+  line-height: 1.0;
+}}
+.hr-grid th {{
+  background: #F2F2F2;
+  font-weight: 500;
+}}
+.hr-grid .group-head {{
+  height: 6mm;
+  font-size: 9.3pt;
+}}
+.hr-grid .col-head {{
+  height: 6mm;
+  font-size: 8.8pt;
+}}
+.stage-table {{
+  font-size: {stage_font_pt:.2f}pt;
+}}
+.stage-table tbody tr {{
+  height: {stage_row_height_mm:.3f}mm;
+}}
+.zone-table {{
+  border-left: 0;
+  font-size: 8.8pt;
+}}
+.zone-table tbody tr {{
+  height: {zone_row_height_mm:.3f}mm;
+}}
+.zone-main {{
+  white-space: nowrap;
+}}
+.zone-chip {{
+  display: inline-block;
+  width: 3.2mm;
+  height: 3.2mm;
+  border-radius: 0.5mm;
+  margin-right: 1.6mm;
+  vertical-align: -0.45mm;
+}}
+.basic-graph-box {{
+  height: 73mm;
+  margin: 1.7mm 0 1.5mm 0;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   overflow: hidden;
 }}
-.hr-graph {{
+.basic-graph {{
   width: 100%;
   height: 100%;
-  max-height: 106mm;
   object-fit: contain;
-  object-position: center bottom;
 }}
-.page-2 h2 {{ margin-top: 1.2mm; }}
-.lactate-table th, .lactate-table td {{
-  padding: 1.8mm 0.7mm;
+.page1-comment {{
+  height: 26mm;
   font-size: 8.8pt;
+  line-height: 1.42;
+  overflow: hidden;
 }}
-.lactate-graph {{
+.page2-top {{
+  height: 10mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}}
+.page2-heading {{
+  font-size: 12pt;
+  font-weight: 800;
+  line-height: 1;
+}}
+.page2-logo {{
+  margin-left: auto;
+}}
+.lactate-table {{
+  margin-top: 0.8mm;
+}}
+.lactate-table th,
+.lactate-table td {{
+  height: 6.2mm;
+  font-size: 8.5pt;
+  padding: 0.3mm;
+}}
+.lactate-graph-box {{
+  height: 70mm;
+  margin-top: 1.5mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}}
+.lactate-only-graph {{
   width: 100%;
-  height: 68mm;
+  height: 100%;
   object-fit: contain;
-  margin: 1.2mm 0 0.5mm;
+}}
+.lactate-comment {{
+  min-height: 23mm;
+  max-height: 29mm;
+  overflow: hidden;
+  border-top: 0.55px solid #555;
+  border-bottom: 0.55px solid #555;
+  padding: 1.2mm 1.0mm;
+  font-size: 8.5pt;
+  line-height: 1.38;
+}}
+.total-title {{
+  height: 6.5mm;
+  display: flex;
+  align-items: center;
+  font-size: 11.8pt;
+  font-weight: 800;
+  border-bottom: 0.55px solid #555;
+}}
+.combined-graph-box {{
+  height: 75mm;
+  margin-top: 1.2mm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }}
 .combined-graph {{
   width: 100%;
-  height: 82mm;
+  height: 100%;
   object-fit: contain;
-  margin: 0.8mm 0 0.5mm;
 }}
-.lt-block {{ border-top: 1px solid #555; padding-top: 1.5mm; margin-top: 1.5mm; }}
-.lt-block p {{ margin: 0.7mm 0; line-height: 1.48; }}
+.lt-section {{
+  border-top: 0.55px solid #555;
+  padding-top: 1.5mm;
+  margin-top: 1.3mm;
+}}
+.lt2-section {{
+  border-top: none;
+  margin-top: 3.0mm;
+  padding-top: 0;
+}}
+.lt-title {{
+  font-size: 9.5pt;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 0.8mm;
+}}
+.editable-text {{
+  font-size: 8.25pt;
+  line-height: 1.34;
+}}
+.page2-bottom-line {{
+  margin-top: 1.5mm;
+  border-bottom: 0.55px solid #555;
+}}
 </style>
 </head>
 <body>
-<section class="page page-1">
-  <div class="brand-row">{logo_html}</div>
-  <h1>차세대스포츠과학지원센터 체력측정 결과</h1>
 
-  <h2>선수 정보</h2>
-  <table class="info">
+<section class="page">
+  <div class="page1-logo">{logo_html}</div>
+  <div class="main-title">차세대스포츠과학지원센터 체력측정 결과</div>
+
+  <div class="section-line">
+    <div class="section-title">선수 정보</div>
+    <div class="section-right"><strong>측정날짜:</strong>&nbsp; {html.escape(str(data['test_date']))}</div>
+  </div>
+  <table class="data-table info-table">
     <tr>
-      <td class="label">이름</td><td>{data['name']}</td>
-      <td class="label">성별</td><td>{data['sex']}</td>
-      <td class="label">구분</td><td>{data['category']}</td>
-      <td class="label">측정날짜</td><td>{data['test_date']}</td>
+      <td class="info-label">이름</td><td>{html.escape(str(data['name']))}</td>
+      <td class="info-label">성별</td><td>{html.escape(str(data['sex']))}</td>
+      <td class="info-label">구분</td><td>{html.escape(str(data['category']))}</td>
     </tr>
   </table>
 
-  <h2>선수 체격 및 신체조성</h2>
-  <table class="info">
+  <div class="section-line">
+    <div class="section-title">선수 체격 및 신체조성</div>
+  </div>
+  <table class="data-table info-table">
     <tr>
-      <td class="label">신장(cm)</td><td>{data['height']}</td>
-      <td class="label">체중(kg)</td><td>{data['weight']}</td>
-      <td class="label">BMI(kg/m²)</td><td>{data['bmi']}</td>
+      <td class="info-label">신장(cm)</td><td>{html.escape(str(data['height']))}</td>
+      <td class="info-label">체중(kg)</td><td>{html.escape(str(data['weight']))}</td>
+      <td class="info-label">BMI(kg/m²)</td><td>{html.escape(str(data['bmi']))}</td>
     </tr>
   </table>
 
-  <h2 style="display:flex; justify-content:space-between; align-items:flex-end;">
-    <span>운동 부하 검사 – KISS Protocol</span>
-    <span style="font-size:8.8pt; font-weight:400;">* 경사도 {data['grade_percent']}% 고정</span>
-  </h2>
-  <table class="info">
+  <div class="section-line">
+    <div class="section-title">운동 부하 검사 - KISS Protocol</div>
+    <div class="section-right"><strong>* 경사도 {html.escape(str(data['grade_percent']))}% 고정</strong></div>
+  </div>
+  <table class="data-table measure-table">
     <tr>
-      <td class="label">최대 산소 섭취량</td><td>{data['vo2max']}</td>
-      <td class="label">최대 심박수</td><td>{data['hrmax']}</td>
-      <td class="label">운동 시간</td><td>{data['exercise_time']}</td>
-      <td class="label">최대 {data['load_name']}</td><td>{data['max_load']} {data['load_unit']}</td>
+      <td class="info-label">최대 산소 섭취량(ml/kg/min)</td><td>{html.escape(str(data['vo2max']))}</td>
+      <td class="info-label">최대 심박수(beats/min)</td><td>{html.escape(str(data['hrmax']))}</td>
+    </tr>
+    <tr>
+      <td class="info-label">운동 시간</td><td>{html.escape(str(data['exercise_time']))}</td>
+      <td class="info-label">최대 {html.escape(str(data['load_name']))}({html.escape(str(data['load_unit']))})</td><td>{html.escape(str(data['max_load']))}</td>
     </tr>
   </table>
 
-  <h2>심박수(beats/min)</h2>
-  <div class="hr-table-area">
+  <div class="hr-title">심박수(beats/min)</div>
+  <div class="hr-grid">
     <table class="stage-table">
-      <thead><tr><th>Stage</th><th>HR range</th><th>HR mean</th><th>주요 Zone</th></tr></thead>
+      <thead>
+        <tr><th class="group-head" colspan="4">스테이지별 HR 범위</th></tr>
+        <tr>
+          <th class="col-head">Speed</th>
+          <th class="col-head">HR range</th>
+          <th class="col-head">HR mean</th>
+          <th class="col-head">주요 Zone</th>
+        </tr>
+      </thead>
       <tbody>{stage_rows}</tbody>
     </table>
     <table class="zone-table">
-      <thead><tr><th>Zone</th><th>%HRmax</th><th>HR range</th></tr></thead>
+      <thead>
+        <tr><th class="group-head" colspan="3">Training zone</th></tr>
+        <tr>
+          <th class="col-head">Zone</th>
+          <th class="col-head">%HRmax</th>
+          <th class="col-head">HR range</th>
+        </tr>
+      </thead>
       <tbody>{zone_rows}</tbody>
     </table>
   </div>
 
-  <div class="graph-wrap"><img class="hr-graph" src="{_img_data(basic_graph)}"></div>
+  <div class="basic-graph-box">
+    <img class="basic-graph" src="{_img_data(basic_graph)}">
+  </div>
+
+  <div class="page1-comment">{_text_html(data.get("page1_comment", ""))}</div>
 </section>
 
-<section class="page page-2">
-  <div class="brand-row">{logo_html}</div>
-  <h2>혈중 젖산염(mmol/L)</h2>
-  <table class="lactate-table">
-    <tr>{lactate_cells}</tr>
+<section class="page">
+  <div class="page2-top">
+    <div class="page2-heading">혈중 젖산염(mmol/L)</div>
+    <div class="page2-logo">{logo_html}</div>
+  </div>
+
+  <table class="data-table lactate-table">
+    <tr>{lactate_headers}</tr>
     <tr>{lactate_values}</tr>
   </table>
-  {lactate_img}
-  {combined_img}
-  {lt_blocks}
+
+  <div class="lactate-graph-box">{lactate_img}</div>
+
+  <div class="lactate-comment">{_text_html(data.get("lactate_comment", ""))}</div>
+
+  <div class="total-title">총평</div>
+
+  <div class="combined-graph-box">{combined_img}</div>
+
+  {lt1_block}
+  {lt2_block}
+  <div class="page2-bottom-line"></div>
 </section>
+
 </body>
 </html>"""
 
 
-def html_to_pdf(html: str) -> bytes:
+def html_to_pdf(html_text: str) -> bytes:
     from weasyprint import HTML
 
     output = BytesIO()
-    HTML(string=html, base_url=str(ROOT)).write_pdf(output)
+    HTML(string=html_text, base_url=str(ROOT)).write_pdf(output)
     return output.getvalue()
