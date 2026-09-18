@@ -558,11 +558,167 @@ with tab4:
                 ),
             }
 
+        lt1_item = lt_report_item(
+            analysis["lt1"],
+            "LT1",
+        )
+        lt2_item = lt_report_item(
+            analysis["lt2"],
+            "LT2",
+        )
+
+        valid_loads = [
+            float(v)
+            for v in summary["Load"].dropna().tolist()
+        ]
+        first_load = valid_loads[0] if valid_loads else meta["max_load"]
+        increment = (
+            valid_loads[1] - valid_loads[0]
+            if len(valid_loads) >= 2
+            else 0
+        )
+
+        protocol_text = (
+            f"프로토콜(경사 {meta['grade_percent']:.1f}% 고정, "
+            f"시작 {first_load:g} {meta['load_unit']}"
+        )
+        if increment > 0:
+            protocol_text += (
+                f", 3분마다 {increment:g} {meta['load_unit']} 증가"
+            )
+        protocol_text += (
+            f")을 통한 운동부하검사 결과, "
+            f"{meta['athlete']['name']} 선수의 최대심박수 "
+            f"{meta['hrmax']} bpm, 최대산소섭취량 "
+            f"{meta['vo2max']:.2f} ml/kg/min으로 측정되었습니다."
+        )
+
+        rest_point = next(
+            (
+                p
+                for p in analysis["chart_points"]
+                if str(p.get("label", "")).lower() == "rest"
+            ),
+            None,
+        )
+        if rest_point:
+            lactate_default = (
+                f"젖산 역치 측정 결과 {meta['athlete']['name']} 선수의 "
+                f"안정 시 혈중 젖산염은 "
+                f"{float(rest_point['lactate']):.2f} mmol/L로 측정되었습니다. "
+                "이후 운동 강도 증가에 따른 혈중 젖산염 변화는 "
+                "그래프와 같습니다."
+            )
+        else:
+            lactate_default = (
+                f"젖산 역치 측정 결과 {meta['athlete']['name']} 선수의 "
+                "운동 강도 증가에 따른 혈중 젖산염 변화는 "
+                "그래프와 같습니다."
+            )
+
+        def default_lt_comment(item, name):
+            if not item.get("show"):
+                return ""
+            if not item.get("valid"):
+                return f"산출 불가: {item.get('reason', '')}"
+
+            zone = zone_for_hr(item["hr"], meta["hrmax"])
+            load_word = (
+                "속도"
+                if meta["load_type"] == "Speed"
+                else "파워"
+            )
+
+            if name == "LT1":
+                return (
+                    f"혈중 젖산염과 운동 부하를 통해 산출된 "
+                    f"LT1(제1젖산역치; 유산소 대사) 지점은 "
+                    f"{item['load']:.2f}{meta['load_unit']}로 나타났습니다. "
+                    f"이는 심박수 기준 {item['hr']}bpm"
+                    f"({zone} 구간, %HRmax 약 {item['pct_hrmax']:.0f}%)에 "
+                    f"해당하는 강도입니다. 즉, 경사도 "
+                    f"{meta['grade_percent']:.1f}%, {load_word} 약 "
+                    f"{item['load']:.2f}{meta['load_unit']} 이하 구간까지는 "
+                    "젖산의 생성과 제거가 균형을 이루는 안정적 유산소 대사 "
+                    "구간으로 해석할 수 있으며, 이 지점을 초과할 경우 젖산 "
+                    "축적이 본격화되는 것으로 판단됩니다. 따라서 유산소 능력 "
+                    f"향상을 위해 경사도 {meta['grade_percent']:.1f}%에서 "
+                    f"훈련 시 {item['load']:.2f}{meta['load_unit']} 이하로 "
+                    "진행이 적합할 것으로 판단됩니다."
+                )
+
+            return (
+                f"혈중 젖산염과 운동 부하를 통해 산출된 "
+                f"LT2(제2젖산역치; 무산소 대사) 지점은 "
+                f"{item['load']:.2f}{meta['load_unit']}로 나타났습니다. "
+                f"이는 심박수 기준 {item['hr']}bpm"
+                f"({zone} 구간, %HRmax 약 {item['pct_hrmax']:.0f}%)에 "
+                f"해당하는 강도입니다. 즉, 경사도 "
+                f"{meta['grade_percent']:.1f}%, {load_word} 약 "
+                f"{item['load']:.2f}{meta['load_unit']} 구간부터 젖산의 "
+                "제거보다 생성이 빠르게 증가하는 고강도 구간으로 해석할 수 "
+                "있으며, 이 지점부터 젖산 내성 훈련을 위한 구간으로 "
+                f"판단됩니다. 따라서 젖산 내성 훈련을 위해 경사도 "
+                f"{meta['grade_percent']:.1f}%에서 훈련 시 "
+                f"{item['load']:.2f}{meta['load_unit']} 이상의 진행이 "
+                "적합할 것으로 판단됩니다."
+            )
+
+        token = (
+            f"{meta['athlete']['name']}_"
+            f"{meta['test_date'].isoformat()}"
+        )
+        page1_key = f"page1_comment_{token}"
+        lactate_key = f"lactate_comment_{token}"
+        lt1_key = f"lt1_comment_{token}"
+        lt2_key = f"lt2_comment_{token}"
+
+        st.session_state.setdefault(page1_key, protocol_text)
+        st.session_state.setdefault(lactate_key, lactate_default)
+        st.session_state.setdefault(
+            lt1_key,
+            default_lt_comment(lt1_item, "LT1"),
+        )
+        st.session_state.setdefault(
+            lt2_key,
+            default_lt_comment(lt2_item, "LT2"),
+        )
+
+        st.subheader("결과지 문구 편집")
+        page1_comment = st.text_area(
+            "1페이지 그래프 아래 결과 문구",
+            key=page1_key,
+            height=120,
+        )
+        lactate_comment = st.text_area(
+            "2페이지 혈중 젖산염 그래프 아래 결과 문구",
+            key=lactate_key,
+            height=120,
+        )
+
+        if lt1_item.get("show"):
+            lt1_comment = st.text_area(
+                "2페이지 LT1 분석 결과 문구",
+                key=lt1_key,
+                height=150,
+            )
+        else:
+            lt1_comment = ""
+
+        if lt2_item.get("show"):
+            lt2_comment = st.text_area(
+                "2페이지 LT2 분석 결과 문구",
+                key=lt2_key,
+                height=150,
+            )
+        else:
+            lt2_comment = ""
+
         report_data = {
             "name": meta["athlete"]["name"],
             "sex": meta["athlete"]["sex"],
             "category": meta["athlete"]["category"],
-            "test_date": meta["test_date"].isoformat(),
+            "test_date": meta["test_date"].strftime("%Y.%m.%d."),
             "height": f"{meta['height']:.1f}",
             "weight": f"{meta['weight']:.1f}",
             "bmi": f"{meta['bmi']:.1f}",
@@ -580,14 +736,12 @@ with tab4:
             "stages": stages,
             "zones": zones,
             "lactates": analysis["chart_points"],
-            "lt1": lt_report_item(
-                analysis["lt1"],
-                "LT1",
-            ),
-            "lt2": lt_report_item(
-                analysis["lt2"],
-                "LT2",
-            ),
+            "lt1": lt1_item,
+            "lt2": lt2_item,
+            "page1_comment": page1_comment,
+            "lactate_comment": lactate_comment,
+            "lt1_comment": lt1_comment,
+            "lt2_comment": lt2_comment,
         }
 
         html = build_report_html(
@@ -603,21 +757,20 @@ with tab4:
             scrolling=True,
         )
 
-        st.download_button(
-            "HTML 결과지 받기",
-            html.encode("utf-8"),
-            file_name=(
-                f"{meta['test_date']}_"
-                f"{meta['athlete']['name']}_피드백.html"
-            ),
-            mime="text/html",
-            use_container_width=True,
+        excel_bytes = build_excel_export(
+            report_data,
+            summary,
+            analysis["chart_points"],
+            analysis["lt1"],
+            analysis["lt2"],
         )
+
+        c1, c2 = st.columns(2)
 
         try:
             pdf = html_to_pdf(html)
 
-            st.download_button(
+            c1.download_button(
                 "PDF 결과지 받기",
                 pdf,
                 file_name=(
@@ -629,7 +782,21 @@ with tab4:
             )
 
         except Exception as exc:
-            st.warning(
+            c1.warning(
                 "PDF 생성 환경을 확인해야 합니다: "
                 f"{exc}"
             )
+
+        c2.download_button(
+            "Excel 결과 받기",
+            excel_bytes,
+            file_name=(
+                f"{meta['test_date']}_"
+                f"{meta['athlete']['name']}_결과.xlsx"
+            ),
+            mime=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            use_container_width=True,
+        )
