@@ -12,6 +12,8 @@ import pandas as pd
 
 REQUIRED_COLUMNS = ["Time", "VO2/kg", "Heart Rate", "Speed"]
 REST_LABELS = {"R", "REST"}
+STAGE_SEC = 180.0
+REST_SEC = 60.0
 
 
 @dataclass
@@ -92,25 +94,39 @@ def parse_excel(uploaded_file) -> tuple[pd.DataFrame, list[Segment], pd.DataFram
     df["_segment"] = np.cumsum(changes)
     df["_x"] = np.nan
 
-    segments: list[Segment] = []
-    current = 0.0
-
+    raw_segments: list[tuple[str, list[int], np.ndarray]] = []
     for _, group in df.groupby("_segment", sort=False):
         label = group["_segment_key"].iloc[0]
         if label == "__BLANK__":
             continue
-
         idx = group.index.to_list()
         raw = df.loc[idx, "_raw_time"].to_numpy(dtype=float)
-        duration = float(raw[-1] - raw[0]) if len(raw) > 1 else 0.0
+        raw_segments.append((str(label), idx, raw))
 
-        if len(raw) > 1 and duration <= 0:
+    segments: list[Segment] = []
+    current = 0.0
+
+    for i, (label, idx, raw) in enumerate(raw_segments):
+        n = len(raw)
+        actual_duration = float(raw[-1] - raw[0]) if n > 1 else 0.0
+
+        if n > 1 and actual_duration <= 0:
             raise ValueError(f"{label} 구간의 Time 값이 올바르지 않습니다.")
 
-        if len(raw) == 1:
-            xvals = np.array([current])
-        else:
+        last_segment = i == len(raw_segments) - 1
+        rest = is_rest(label)
+
+        if last_segment:
+            if n < 2:
+                raise ValueError("마지막 운동 Stage의 Time 데이터가 부족합니다.")
+            duration = actual_duration
             xvals = current + (raw - raw[0])
+        else:
+            duration = REST_SEC if rest else STAGE_SEC
+            if n == 1:
+                xvals = np.array([current + duration / 2])
+            else:
+                xvals = current + ((raw - raw[0]) / actual_duration) * duration
 
         left = current
         right = current + duration
@@ -119,14 +135,14 @@ def parse_excel(uploaded_file) -> tuple[pd.DataFrame, list[Segment], pd.DataFram
 
         segments.append(
             Segment(
-                label=str(label),
+                label=label,
                 indices=idx,
                 left=left,
                 right=right,
                 center=center,
                 duration=duration,
                 load=parse_load(label),
-                is_rest=is_rest(label),
+                is_rest=rest,
             )
         )
         current = right
