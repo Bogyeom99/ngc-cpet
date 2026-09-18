@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from services.excel_parser import parse_excel, round_half_up
-from services.graph_service import make_hr_vo2_graph, make_lactate_graph
+from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
 from services.report_service import build_report_html, html_to_pdf
 
@@ -16,6 +16,20 @@ from services.report_service import build_report_html, html_to_pdf
 st.set_page_config(page_title="NGC CPET", layout="wide")
 st.title("NGC CPET 피드백지 제작")
 st.caption("운동부하검사 Excel 자료와 혈중 젖산염 값을 이용해 결과지를 생성합니다.")
+st.markdown(
+    """
+    <style>
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background: #ffffff !important;
+        color: #111111 !important;
+    }
+    [data-testid="stAppViewContainer"] * {
+        color-scheme: light !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 if "athletes" not in st.session_state:
     st.session_state.athletes = []
@@ -144,10 +158,17 @@ with tab2:
 
         load_unit = "km/h" if load_type == "Speed" else "watt"
 
-        max_load = st.number_input(
+        c1, c2 = st.columns(2)
+        max_load = c1.number_input(
             f"최대 {load_type}({load_unit})",
             min_value=0.0,
             step=0.1,
+        )
+        grade_percent = c2.number_input(
+            "경사도(%)",
+            min_value=0.0,
+            step=0.1,
+            format="%.1f",
         )
 
         c1, c2 = st.columns(2)
@@ -216,6 +237,7 @@ with tab2:
             "load_type": load_type,
             "load_unit": load_unit,
             "max_load": max_load,
+            "grade_percent": grade_percent,
             "show_lt1": show_lt1,
             "show_lt2": show_lt2,
         }
@@ -264,6 +286,7 @@ with tab3:
         )
 
         st.subheader("혈중 젖산염 입력")
+        st.info("아래 표의 혈중 젖산염 열에 측정된 수치를 입력하세요. 미측정 구간은 비워두면 됩니다.")
 
         edited = st.data_editor(
             rest_default,
@@ -369,35 +392,53 @@ with tab3:
         )
 
         if meta["hrmax"] > 0:
-            hr_png, threshold_hr = make_hr_vo2_graph(
+            basic_png, _ = make_hr_vo2_graph(
                 parsed["df"],
                 parsed["segments"],
                 meta["hrmax"],
+                None,
+                None,
+            )
+
+            combined_png, threshold_hr = make_hr_vo2_lactate_graph(
+                parsed["df"],
+                parsed["segments"],
+                meta["hrmax"],
+                chart_points,
                 lt1_load,
                 lt2_load,
             )
 
+            st.markdown("#### 1페이지용 HR 및 VO2 그래프")
             st.image(
-                hr_png,
+                basic_png,
+                use_container_width=True,
+            )
+
+            st.markdown("#### 2페이지용 HR, VO2 및 Lactate 그래프")
+            st.image(
+                combined_png,
                 use_container_width=True,
             )
 
         else:
-            hr_png = None
+            basic_png = None
+            combined_png = None
             threshold_hr = {
                 "LT1": None,
                 "LT2": None,
             }
             st.warning(
                 "최대 심박수를 입력하면 "
-                "HR/VO2 그래프를 생성할 수 있습니다."
+                "HR 및 VO2 그래프를 생성할 수 있습니다."
             )
 
         st.session_state.analysis = {
             "lt1": lt1,
             "lt2": lt2,
             "chart_points": chart_points,
-            "hr_png": hr_png,
+            "basic_png": basic_png,
+            "combined_png": combined_png,
             "lactate_png": lactate_png,
             "threshold_hr": threshold_hr,
         }
@@ -412,7 +453,8 @@ with tab4:
         parsed is None
         or meta is None
         or analysis is None
-        or analysis.get("hr_png") is None
+        or analysis.get("basic_png") is None
+        or analysis.get("combined_png") is None
     ):
         st.info(
             "분석 탭에서 그래프와 LT 결과를 "
@@ -516,6 +558,7 @@ with tab4:
             ),
             "load_unit": meta["load_unit"],
             "max_load": f"{meta['max_load']:g}",
+            "grade_percent": f"{meta['grade_percent']:.1f}",
             "stages": stages,
             "zones": zones,
             "lactates": analysis["chart_points"],
@@ -531,8 +574,9 @@ with tab4:
 
         html = build_report_html(
             report_data,
-            analysis["hr_png"],
+            analysis["basic_png"],
             analysis["lactate_png"],
+            analysis["combined_png"],
         )
 
         components.html(
