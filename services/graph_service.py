@@ -16,6 +16,7 @@ from services.excel_parser import Segment, round_half_up
 COLOR_HR = "#E31A1C"
 COLOR_VO2 = "#2679D9"
 COLOR_LAC = "#00A6E8"
+COLOR_LAC_COMBINED = "#6F42C1"
 COLOR_LT1 = "#228B22"
 COLOR_LT2 = "#006400"
 LEFT_PAD_SEC = 120.0
@@ -205,9 +206,10 @@ def make_hr_vo2_graph(
 
         ax.axvline(x, color=color, lw=2.0, ls="--", zorder=4)
 
-        label = f"{name} {load:.2f}"
-        if hr is not None:
-            label += f"\n{round_half_up(hr)} bpm"
+        if lt_label_mode == "analysis" and hr is not None:
+            label = f"{name}\n{round_half_up(hr)} bpm"
+        else:
+            label = name
 
         ax.annotate(
             label,
@@ -250,21 +252,24 @@ def make_hr_vo2_graph(
 
     if lt1_load is not None:
         handles.append(Line2D([0], [0], color=COLOR_LT1, lw=2, ls="--"))
-        labels.append(f"LT1 ({lt1_load:.2f})")
+        labels.append("LT1")
 
     if lt2_load is not None:
         handles.append(Line2D([0], [0], color=COLOR_LT2, lw=2, ls="--"))
-        labels.append(f"LT2 ({lt2_load:.2f})")
+        labels.append("LT2")
 
     fig.legend(
         handles,
         labels,
         loc="lower center",
-        bbox_to_anchor=(0.50, 0.05),
+        bbox_to_anchor=(0.50, 0.062),
         ncol=len(handles),
         frameon=False,
         fontsize=9.5,
     )
+
+    footer = "I-beam (black): stage HR range (bpm)  |  I-beam (blue, italic): stage VO2 range (ml/kg/min)"
+    fig.text(0.50, 0.037, footer, ha="center", va="center", color="#666666", fontsize=8.5)
 
     zone_ax = fig.add_axes([0.89, 0.24, 0.10, 0.54])
     zone_ax.axis("off")
@@ -397,6 +402,7 @@ def make_hr_vo2_lactate_graph(
     lactate_points: list[dict],
     lt1_load: float | None = None,
     lt2_load: float | None = None,
+    lt_label_mode: str = "report",
 ) -> tuple[bytes, dict[str, float | None]]:
     _set_korean_font()
 
@@ -512,7 +518,7 @@ def make_hr_vo2_lactate_graph(
         lac_y.append(float(value))
 
     if lac_x:
-        ax3.plot(lac_x, lac_y, color=COLOR_LAC, lw=1.7, marker="o", markersize=4.5, zorder=6)
+        ax3.plot(lac_x, lac_y, color=COLOR_LAC_COMBINED, lw=1.7, marker="o", markersize=4.5, zorder=6)
         for x, y in zip(lac_x, lac_y):
             ax3.annotate(
                 f"{y:.2f}",
@@ -521,7 +527,7 @@ def make_hr_vo2_lactate_graph(
                 textcoords="offset points",
                 ha="center",
                 va="bottom",
-                color=COLOR_LAC,
+                color=COLOR_LAC_COMBINED,
                 fontsize=8,
                 fontweight="bold",
                 zorder=7,
@@ -579,7 +585,7 @@ def make_hr_vo2_lactate_graph(
     handles = [
         Line2D([0], [0], color=COLOR_HR, lw=1.6),
         Line2D([0], [0], color=COLOR_VO2, lw=1.15),
-        Line2D([0], [0], color=COLOR_LAC, lw=1.7, marker="o", markersize=4.5),
+        Line2D([0], [0], color=COLOR_LAC_COMBINED, lw=1.7, marker="o", markersize=4.5),
     ]
     labels = ["HR (bpm)", "VO2/kg", "Blood Lactate (mmol/L)"]
 
@@ -594,11 +600,15 @@ def make_hr_vo2_lactate_graph(
         handles,
         labels,
         loc="lower center",
-        bbox_to_anchor=(0.50, 0.05),
+        bbox_to_anchor=(0.50, 0.062),
         ncol=len(handles),
         frameon=False,
         fontsize=8.8,
     )
+
+    footer = "I-beam (black): stage HR range (bpm)  |  I-beam (blue, italic): stage VO2 range (ml/kg/min)"
+    footer += "  |  Numbers (purple, bold): blood lactate (mmol/L)"
+    fig.text(0.50, 0.037, footer, ha="center", va="center", color="#666666", fontsize=8.2)
 
     zone_ax = fig.add_axes([0.89, 0.24, 0.10, 0.54])
     zone_ax.axis("off")
