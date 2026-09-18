@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from services.excel_export import build_excel_export
 from services.excel_parser import parse_excel, round_half_up
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
@@ -343,30 +344,6 @@ with tab3:
             meta["show_lt2"],
         )
 
-        if meta["show_lt1"]:
-            if lt1 and lt1.valid:
-                st.success(
-                    f"LT1 = {lt1.threshold_load:.2f} "
-                    f"{meta['load_unit']}"
-                )
-            else:
-                st.warning(
-                    "LT1 산출 불가: "
-                    f"{lt1.reason if lt1 else '계산 결과 없음'}"
-                )
-
-        if meta["show_lt2"]:
-            if lt2 and lt2.valid:
-                st.success(
-                    f"LT2 = {lt2.threshold_load:.2f} "
-                    f"{meta['load_unit']}"
-                )
-            else:
-                st.warning(
-                    "LT2 산출 불가: "
-                    f"{lt2.reason if lt2 else '계산 결과 없음'}"
-                )
-
         if chart_points:
             lactate_png = make_lactate_graph(chart_points)
             st.image(
@@ -400,14 +377,53 @@ with tab3:
                 None,
             )
 
-            combined_png, threshold_hr = make_hr_vo2_lactate_graph(
+            combined_analysis_png, threshold_hr = make_hr_vo2_lactate_graph(
                 parsed["df"],
                 parsed["segments"],
                 meta["hrmax"],
                 chart_points,
                 lt1_load,
                 lt2_load,
+                lt_label_mode="analysis",
             )
+
+            combined_report_png, _ = make_hr_vo2_lactate_graph(
+                parsed["df"],
+                parsed["segments"],
+                meta["hrmax"],
+                chart_points,
+                lt1_load,
+                lt2_load,
+                lt_label_mode="report",
+            )
+
+            if meta["show_lt1"]:
+                if lt1 and lt1.valid:
+                    hr = threshold_hr.get("LT1")
+                    hr_text = f" | {round_half_up(hr)} bpm" if hr is not None else ""
+                    st.success(
+                        f"LT1 = {lt1.threshold_load:.2f} "
+                        f"{meta['load_unit']}{hr_text}"
+                    )
+                else:
+                    st.warning(
+                        "LT1 산출 불가: "
+                        f"{lt1.reason if lt1 else '계산 결과 없음'}"
+                    )
+
+            if meta["show_lt2"]:
+                if lt2 and lt2.valid:
+                    hr = threshold_hr.get("LT2")
+                    hr_text = f" | {round_half_up(hr)} bpm" if hr is not None else ""
+                    st.success(
+                        f"LT2 = {lt2.threshold_load:.2f} "
+                        f"{meta['load_unit']}{hr_text}"
+                    )
+                else:
+                    st.warning(
+                        "LT2 산출 불가: "
+                        f"{lt2.reason if lt2 else '계산 결과 없음'}"
+                    )
 
             st.markdown("#### 1페이지용 HR 및 VO2 그래프")
             st.image(
@@ -417,13 +433,14 @@ with tab3:
 
             st.markdown("#### 2페이지용 HR, VO2 및 Lactate 그래프")
             st.image(
-                combined_png,
+                combined_analysis_png,
                 use_container_width=True,
             )
 
         else:
             basic_png = None
-            combined_png = None
+            combined_analysis_png = None
+            combined_report_png = None
             threshold_hr = {
                 "LT1": None,
                 "LT2": None,
@@ -438,7 +455,8 @@ with tab3:
             "lt2": lt2,
             "chart_points": chart_points,
             "basic_png": basic_png,
-            "combined_png": combined_png,
+            "combined_analysis_png": combined_analysis_png,
+            "combined_report_png": combined_report_png,
             "lactate_png": lactate_png,
             "threshold_hr": threshold_hr,
         }
@@ -454,7 +472,7 @@ with tab4:
         or meta is None
         or analysis is None
         or analysis.get("basic_png") is None
-        or analysis.get("combined_png") is None
+        or analysis.get("combined_report_png") is None
     ):
         st.info(
             "분석 탭에서 그래프와 LT 결과를 "
@@ -576,7 +594,7 @@ with tab4:
             report_data,
             analysis["basic_png"],
             analysis["lactate_png"],
-            analysis["combined_png"],
+            analysis["combined_report_png"],
         )
 
         components.html(
