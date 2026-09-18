@@ -34,14 +34,18 @@ st.markdown(
 )
 
 if "athletes" not in st.session_state:
-    if is_configured():
-        try:
-            st.session_state.athletes = list_athletes()
-        except Exception as exc:
-            st.session_state.athletes = []
-            st.session_state.athlete_store_error = str(exc)
-    else:
-        st.session_state.athletes = []
+    st.session_state.athletes = []
+
+if "athletes_loaded" not in st.session_state:
+    st.session_state.athletes_loaded = False
+
+if is_configured() and not st.session_state.athletes_loaded:
+    try:
+        st.session_state.athletes = list_athletes()
+        st.session_state.athlete_store_error = None
+        st.session_state.athletes_loaded = True
+    except Exception as exc:
+        st.session_state.athlete_store_error = str(exc)
 
 if "parsed" not in st.session_state:
     st.session_state.parsed = None
@@ -87,6 +91,15 @@ with tab1:
             f"{st.session_state['athlete_store_error']}"
         )
 
+    if is_configured() and st.button("선수 목록 새로고침"):
+        try:
+            st.session_state.athletes = list_athletes()
+            st.session_state.athlete_store_error = None
+            st.session_state.athletes_loaded = True
+            st.rerun()
+        except Exception as exc:
+            st.session_state.athlete_store_error = str(exc)
+
     with st.form("athlete_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
 
@@ -113,6 +126,8 @@ with tab1:
                         category=category,
                     )
                     st.session_state.athletes = list_athletes()
+                    st.session_state.athlete_store_error = None
+                    st.session_state.athletes_loaded = True
                     st.success(f"{athlete['name']} 선수를 저장했습니다.")
                 except Exception as exc:
                     st.error(f"선수 저장 중 오류가 발생했습니다: {exc}")
