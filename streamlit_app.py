@@ -384,7 +384,7 @@ with tab3:
                 chart_points,
                 lt1_load,
                 lt2_load,
-                lt_label_mode="analysis",
+                lt_label_mode="report",
             )
 
             combined_report_png, _ = make_hr_vo2_lactate_graph(
