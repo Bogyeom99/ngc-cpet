@@ -35,7 +35,7 @@ def build_report_html(
     lactates = [p for p in data.get("lactates", []) if p.get("lactate") is not None]
 
     stage_count = max(len(stages), 1)
-    body_height_mm = 79.0
+    body_height_mm = 80.0
     stage_row_height_mm = body_height_mm / stage_count
     zone_row_height_mm = body_height_mm / 5.0
     stage_font_pt = max(7.5, min(9.4, 9.5 - max(stage_count - 8, 0) * 0.22))
@@ -158,7 +158,8 @@ body {{
   justify-content: space-between;
   align-items: flex-end;
   height: 6mm;
-  margin-top: 0.5mm;
+  margin-top: 1.5mm;
+  margin-bottom: 1.0mm;
 }}
 .section-title {{
   font-size: 11.7pt;
@@ -183,8 +184,8 @@ body {{
   border-right: 0.45px solid #777;
   text-align: center;
   vertical-align: middle;
-  padding: 0.5mm 0.6mm;
-  line-height: 1.05;
+  padding: 0.75mm 0.8mm;
+  line-height: 1.10;
 }}
 .data-table th {{
   background: #F2F2F2;
@@ -197,25 +198,28 @@ body {{
   background: #F2F2F2;
   font-weight: 700;
 }}
+.measure-table {{
+  font-size: 8.8pt;
+}}
 .measure-table td {{
-  height: 6.8mm;
+  height: 7.2mm;
 }}
 .hr-title {{
   font-size: 12pt;
   font-weight: 800;
-  margin: 2.0mm 0 0.8mm 0;
+  margin: 2.6mm 0 1.2mm 0;
   line-height: 1;
 }}
 .hr-grid {{
   width: 100%;
-  height: 88mm;
+  height: 92mm;
   display: grid;
   grid-template-columns: 62% 38%;
   gap: 0;
 }}
 .hr-grid table {{
   width: 100%;
-  height: 88mm;
+  height: 92mm;
   border-collapse: collapse;
   table-layout: fixed;
 }}
@@ -224,8 +228,8 @@ body {{
   border: 0.5px solid #555;
   text-align: center;
   vertical-align: middle;
-  padding: 0.3mm 0.35mm;
-  line-height: 1.0;
+  padding: 0.55mm 0.45mm;
+  line-height: 1.05;
 }}
 .hr-grid th {{
   background: #F2F2F2;
@@ -264,8 +268,8 @@ body {{
   vertical-align: -0.45mm;
 }}
 .basic-graph-box {{
-  height: 73mm;
-  margin: 1.7mm 0 1.5mm 0;
+  height: 70mm;
+  margin: 4.0mm 0 2.5mm 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -277,7 +281,8 @@ body {{
   object-fit: contain;
 }}
 .page1-comment {{
-  height: 26mm;
+  height: 24mm;
+  padding-top: 1.0mm;
   font-size: 9.5pt;
   line-height: 1.42;
   overflow: hidden;
@@ -297,7 +302,7 @@ body {{
   margin-left: auto;
 }}
 .lactate-table {{
-  margin-top: 0.8mm;
+  margin-top: 1.5mm;
 }}
 .lactate-table th,
 .lactate-table td {{
@@ -306,8 +311,8 @@ body {{
   padding: 0.3mm;
 }}
 .lactate-graph-box {{
-  height: 50mm;
-  margin-top: 1.5mm;
+  height: 52mm;
+  margin: 6.0mm 0 3.0mm 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -319,17 +324,18 @@ body {{
   object-fit: contain;
 }}
 .lactate-comment {{
-  min-height: 23mm;
-  max-height: 29mm;
+  min-height: 25mm;
+  max-height: 31mm;
   overflow: hidden;
   border-top: 0.55px solid #555;
   border-bottom: 0.55px solid #555;
-  padding: 1.2mm 1.0mm;
+  padding: 2.0mm 1.2mm;
   font-size: 9.2pt;
   line-height: 1.42;
 }}
 .total-title {{
   height: 6.5mm;
+  margin-top: 4.5mm;
   display: flex;
   align-items: center;
   font-size: 11.8pt;
@@ -337,8 +343,8 @@ body {{
   border-bottom: 0.55px solid #555;
 }}
 .combined-graph-box {{
-  height: 75mm;
-  margin-top: 1.2mm;
+  height: 73mm;
+  margin: 3.0mm 0 2.5mm 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -351,8 +357,8 @@ body {{
 }}
 .lt-section {{
   border-top: 0.55px solid #555;
-  padding-top: 1.5mm;
-  margin-top: 1.3mm;
+  padding-top: 2.0mm;
+  margin-top: 2.0mm;
 }}
 .lt2-section {{
   border-top: none;
