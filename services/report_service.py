@@ -481,7 +481,7 @@ body {{
 
   <div class="lactate-comment">{_text_html(data.get("lactate_comment", ""))}</div>
 
-  <div class="total-title">총평</div>
+  <div class="total-title"><span class="title-chip">총평</span></div>
 
   <div class="combined-graph-box">{combined_img}</div>
 
