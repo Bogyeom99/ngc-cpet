@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+from services.athlete_store import add_athlete, is_configured, list_athletes
 from services.excel_export import build_excel_export
 from services.excel_parser import parse_excel, round_half_up
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
@@ -33,7 +34,14 @@ st.markdown(
 )
 
 if "athletes" not in st.session_state:
-    st.session_state.athletes = []
+    if is_configured():
+        try:
+            st.session_state.athletes = list_athletes()
+        except Exception as exc:
+            st.session_state.athletes = []
+            st.session_state.athlete_store_error = str(exc)
+    else:
+        st.session_state.athletes = []
 
 if "parsed" not in st.session_state:
     st.session_state.parsed = None
@@ -65,7 +73,21 @@ tab1, tab2, tab3, tab4 = st.tabs(
 
 
 with tab1:
-    with st.form("athlete_form"):
+    if is_configured():
+        st.caption("등록한 선수는 데이터베이스에 저장되어 앱을 다시 열어도 유지됩니다.")
+    else:
+        st.warning(
+            "현재 영구 저장소가 연결되지 않아 선수 정보가 세션 종료 후 사라질 수 있습니다. "
+            "Supabase 연결 정보를 설정하면 자동으로 영구 저장됩니다."
+        )
+
+    if st.session_state.get("athlete_store_error"):
+        st.error(
+            "선수 목록을 불러오지 못했습니다: "
+            f"{st.session_state['athlete_store_error']}"
+        )
+
+    with st.form("athlete_form", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
 
         name = c1.text_input("선수 이름")
@@ -83,6 +105,17 @@ with tab1:
         if submitted:
             if not name.strip():
                 st.error("선수 이름을 입력하세요.")
+            elif is_configured():
+                try:
+                    athlete = add_athlete(
+                        name=name,
+                        sex=sex,
+                        category=category,
+                    )
+                    st.session_state.athletes = list_athletes()
+                    st.success(f"{athlete['name']} 선수를 저장했습니다.")
+                except Exception as exc:
+                    st.error(f"선수 저장 중 오류가 발생했습니다: {exc}")
             else:
                 st.session_state.athletes.append(
                     {
@@ -91,11 +124,19 @@ with tab1:
                         "category": category,
                     }
                 )
-                st.success(f"{name.strip()} 선수를 등록했습니다.")
+                st.success(
+                    f"{name.strip()} 선수를 현재 세션에 등록했습니다."
+                )
 
     if st.session_state.athletes:
+        athlete_df = pd.DataFrame(st.session_state.athletes).copy()
+        visible_cols = [
+            col
+            for col in ["name", "sex", "category"]
+            if col in athlete_df.columns
+        ]
         st.dataframe(
-            pd.DataFrame(st.session_state.athletes),
+            athlete_df[visible_cols],
             use_container_width=True,
             hide_index=True,
         )
@@ -105,13 +146,17 @@ with tab2:
     if not st.session_state.athletes:
         st.info("먼저 선수 등록 탭에서 선수를 등록하세요.")
     else:
-        athlete_names = [a["name"] for a in st.session_state.athletes]
-        selected_name = st.selectbox("선수 선택", athlete_names)
-        athlete = next(
-            a
-            for a in st.session_state.athletes
-            if a["name"] == selected_name
+        athlete_options = list(range(len(st.session_state.athletes)))
+        selected_index = st.selectbox(
+            "선수 선택",
+            athlete_options,
+            format_func=lambda i: (
+                f"{st.session_state.athletes[i]['name']} "
+                f"({st.session_state.athletes[i]['sex']} / "
+                f"{st.session_state.athletes[i]['category']})"
+            ),
         )
+        athlete = st.session_state.athletes[selected_index]
 
         c1, c2, c3, c4 = st.columns(4)
 
