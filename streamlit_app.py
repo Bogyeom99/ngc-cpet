@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_quill import st_quill
 
 from services.athlete_store import (
     add_athlete,
@@ -862,32 +863,55 @@ with tab4:
         )
 
         st.subheader("결과지 문구 편집")
-        page1_comment = st.text_area(
-            "1페이지 그래프 아래 결과 문구",
-            key=page1_key,
-            height=120,
-        )
-        lactate_comment = st.text_area(
-            "2페이지 혈중 젖산염 그래프 아래 결과 문구",
-            key=lactate_key,
-            height=120,
+        st.caption(
+            "문구 일부를 선택한 뒤 색상 도구에서 빨간색 등 원하는 글자색을 적용할 수 있습니다."
         )
 
+        rich_toolbar = [
+            ["bold", "italic", "underline"],
+            [{"color": []}],
+            ["clean"],
+        ]
+
+        st.markdown("**1페이지 그래프 아래 결과 문구**")
+        page1_comment = st_quill(
+            value=st.session_state[page1_key],
+            html=True,
+            toolbar=rich_toolbar,
+            key=f"{page1_key}_editor",
+        ) or ""
+        st.session_state[page1_key] = page1_comment
+
+        st.markdown("**2페이지 혈중 젖산염 그래프 아래 결과 문구**")
+        lactate_comment = st_quill(
+            value=st.session_state[lactate_key],
+            html=True,
+            toolbar=rich_toolbar,
+            key=f"{lactate_key}_editor",
+        ) or ""
+        st.session_state[lactate_key] = lactate_comment
+
         if lt1_item.get("show"):
-            lt1_comment = st.text_area(
-                "2페이지 LT1 분석 결과 문구",
-                key=lt1_key,
-                height=150,
-            )
+            st.markdown("**2페이지 LT1 분석 결과 문구**")
+            lt1_comment = st_quill(
+                value=st.session_state[lt1_key],
+                html=True,
+                toolbar=rich_toolbar,
+                key=f"{lt1_key}_editor",
+            ) or ""
+            st.session_state[lt1_key] = lt1_comment
         else:
             lt1_comment = ""
 
         if lt2_item.get("show"):
-            lt2_comment = st.text_area(
-                "2페이지 LT2 분석 결과 문구",
-                key=lt2_key,
-                height=150,
-            )
+            st.markdown("**2페이지 LT2 분석 결과 문구**")
+            lt2_comment = st_quill(
+                value=st.session_state[lt2_key],
+                html=True,
+                toolbar=rich_toolbar,
+                key=f"{lt2_key}_editor",
+            ) or ""
+            st.session_state[lt2_key] = lt2_comment
         else:
             lt2_comment = ""
 
