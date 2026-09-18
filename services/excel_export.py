@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from io import BytesIO
+import html
+import re
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -9,6 +11,14 @@ from openpyxl.utils import get_column_letter
 
 HEADER_FILL = PatternFill("solid", fgColor="D9E2F3")
 SECTION_FILL = PatternFill("solid", fgColor="EAF0F8")
+
+
+def _plain_text(value: str) -> str:
+    value = value or ""
+    value = re.sub(r"(?i)<br\s*/?>", "\n", value)
+    value = re.sub(r"(?i)</p>\s*<p[^>]*>", "\n", value)
+    value = re.sub(r"(?s)<[^>]+>", "", value)
+    return html.unescape(value).strip()
 
 
 def _section(sheet, row: int, title: str, end_col: int = 2) -> None:
@@ -177,10 +187,10 @@ def build_excel_export(
     ws4 = wb.create_sheet("평가문구")
     _section(ws4, 1, "결과지 평가 문구")
     text_rows = [
-        ("1페이지 평가 문구", report_data.get("page1_comment", "")),
-        ("젖산 평가 문구", report_data.get("lactate_comment", "")),
-        ("LT1 분석 문구", report_data.get("lt1_comment", "")),
-        ("LT2 분석 문구", report_data.get("lt2_comment", "")),
+        ("1페이지 평가 문구", _plain_text(report_data.get("page1_comment", ""))),
+        ("젖산 평가 문구", _plain_text(report_data.get("lactate_comment", ""))),
+        ("LT1 분석 문구", _plain_text(report_data.get("lt1_comment", ""))),
+        ("LT2 분석 문구", _plain_text(report_data.get("lt2_comment", ""))),
     ]
     for row_idx, item in enumerate(text_rows, start=2):
         _pair(ws4, row_idx, item[0], item[1])
