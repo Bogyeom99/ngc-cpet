@@ -547,9 +547,10 @@ def make_hr_vo2_lactate_graph(
         threshold_hr[name] = hr
         ax.axvline(x, color=color, lw=2.0, ls="--", zorder=4)
 
-        label = f"{name} {load:.2f}"
-        if hr is not None:
-            label += f"\n{round_half_up(hr)} bpm"
+        if lt_label_mode == "analysis" and hr is not None:
+            label = f"{name}\n{round_half_up(hr)} bpm"
+        else:
+            label = name
 
         ax.annotate(
             label,
@@ -591,10 +592,10 @@ def make_hr_vo2_lactate_graph(
 
     if lt1_load is not None:
         handles.append(Line2D([0], [0], color=COLOR_LT1, lw=2, ls="--"))
-        labels.append(f"LT1 ({lt1_load:.2f})")
+        labels.append("LT1")
     if lt2_load is not None:
         handles.append(Line2D([0], [0], color=COLOR_LT2, lw=2, ls="--"))
-        labels.append(f"LT2 ({lt2_load:.2f})")
+        labels.append("LT2")
 
     fig.legend(
         handles,
