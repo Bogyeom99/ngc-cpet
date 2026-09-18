@@ -19,7 +19,7 @@ def _logo_data() -> str:
     return _img_data(LOGO_PATH.read_bytes())
 
 
-def build_report_html(data: dict, hr_graph: bytes, lactate_graph: bytes | None) -> str:
+def build_report_html(data: dict, basic_graph: bytes, lactate_graph: bytes | None, combined_graph: bytes | None) -> str:
     stages = data.get("stages", [])
     lactates = data.get("lactates", [])
     zones = data.get("zones", [])
@@ -67,6 +67,11 @@ def build_report_html(data: dict, hr_graph: bytes, lactate_graph: bytes | None) 
     lactate_img = (
         f"<img class='lactate-graph' src='{_img_data(lactate_graph)}'>"
         if lactate_graph
+        else ""
+    )
+    combined_img = (
+        f"<img class='combined-graph' src='{_img_data(combined_graph)}'>"
+        if combined_graph
         else ""
     )
 
@@ -172,9 +177,15 @@ th {{ background: #f2f2f2; font-weight: 700; }}
 }}
 .lactate-graph {{
   width: 100%;
-  height: 112mm;
+  height: 68mm;
   object-fit: contain;
-  margin: 2mm 0 1mm;
+  margin: 1.2mm 0 0.5mm;
+}}
+.combined-graph {{
+  width: 100%;
+  height: 82mm;
+  object-fit: contain;
+  margin: 0.8mm 0 0.5mm;
 }}
 .lt-block {{ border-top: 1px solid #555; padding-top: 1.5mm; margin-top: 1.5mm; }}
 .lt-block p {{ margin: 0.7mm 0; line-height: 1.48; }}
@@ -204,7 +215,10 @@ th {{ background: #f2f2f2; font-weight: 700; }}
     </tr>
   </table>
 
-  <h2>운동 부하 검사</h2>
+  <h2 style="display:flex; justify-content:space-between; align-items:flex-end;">
+    <span>운동 부하 검사 – KISS Protocol</span>
+    <span style="font-size:8.8pt; font-weight:400;">* 경사도 {data['grade_percent']}% 고정</span>
+  </h2>
   <table class="info">
     <tr>
       <td class="label">최대 산소 섭취량</td><td>{data['vo2max']}</td>
@@ -226,7 +240,7 @@ th {{ background: #f2f2f2; font-weight: 700; }}
     </table>
   </div>
 
-  <div class="graph-wrap"><img class="hr-graph" src="{_img_data(hr_graph)}"></div>
+  <div class="graph-wrap"><img class="hr-graph" src="{_img_data(basic_graph)}"></div>
 </section>
 
 <section class="page page-2">
@@ -237,6 +251,7 @@ th {{ background: #f2f2f2; font-weight: 700; }}
     <tr>{lactate_values}</tr>
   </table>
   {lactate_img}
+  {combined_img}
   {lt_blocks}
 </section>
 </body>
