@@ -18,6 +18,8 @@ COLOR_VO2 = "#2679D9"
 COLOR_LAC = "#00A6E8"
 COLOR_LT1 = "#228B22"
 COLOR_LT2 = "#006400"
+LEFT_PAD_SEC = 120.0
+RIGHT_PAD_SEC = 120.0
 
 
 def _set_korean_font() -> None:
@@ -106,6 +108,9 @@ def make_hr_vo2_graph(
 
     for _, low, high, color in zones:
         ax.axhspan(low, high, color=color, alpha=0.42, zorder=0)
+
+    ax.axvspan(-LEFT_PAD_SEC, 0, color="#B8B8B8", alpha=0.18, zorder=0)
+    ax.axvspan(segments[-1].right, segments[-1].right + RIGHT_PAD_SEC, color="#B8B8B8", alpha=0.18, zorder=0)
 
     for seg in segments:
         if seg.is_rest:
@@ -219,7 +224,7 @@ def make_hr_vo2_graph(
         )
 
     total_end = segments[-1].right
-    ax.set_xlim(0, total_end)
+    ax.set_xlim(-LEFT_PAD_SEC, total_end + RIGHT_PAD_SEC)
     ax.set_ylim(hr_ymin, hr_ymax)
     ax2.set_ylim(vo2_ymin, vo2_ymax)
 
@@ -229,9 +234,9 @@ def make_hr_vo2_graph(
     ax.tick_params(axis="y", colors=COLOR_HR)
     ax2.tick_params(axis="y", colors=COLOR_VO2)
 
-    ticks = list(dict.fromkeys([0.0] + [seg.right for seg in segments]))
+    ticks = list(dict.fromkeys([-LEFT_PAD_SEC, 0.0] + [seg.right for seg in segments]))
     ax.set_xticks(ticks)
-    ax.set_xticklabels([fmt_time(t) for t in ticks], fontsize=7)
+    ax.set_xticklabels(["" if t < 0 else fmt_time(t) for t in ticks], fontsize=7)
     ax.set_xlabel("Time (mm:ss)", fontsize=12)
 
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
@@ -364,7 +369,7 @@ def make_lactate_graph(points: list[dict]) -> bytes:
 def _lactate_x_for_stage(segments: list[Segment], stage_label: str, load_value: float | None) -> float | None:
     label = str(stage_label).strip()
     if label.lower() == "rest":
-        return None
+        return -LEFT_PAD_SEC / 2
 
     exercise = [seg for seg in segments if not seg.is_rest and seg.load is not None]
     if not exercise:
@@ -426,6 +431,9 @@ def make_hr_vo2_lactate_graph(
 
     for _, low, high, color in zones:
         ax.axhspan(low, high, color=color, alpha=0.42, zorder=0)
+
+    ax.axvspan(-LEFT_PAD_SEC, 0, color="#B8B8B8", alpha=0.18, zorder=0)
+    ax.axvspan(segments[-1].right, segments[-1].right + RIGHT_PAD_SEC, color="#B8B8B8", alpha=0.18, zorder=0)
 
     for seg in segments:
         if seg.is_rest:
@@ -552,7 +560,7 @@ def make_hr_vo2_lactate_graph(
         )
 
     total_end = segments[-1].right
-    ax.set_xlim(0, total_end)
+    ax.set_xlim(-LEFT_PAD_SEC, total_end + RIGHT_PAD_SEC)
     ax.set_ylim(hr_ymin, hr_ymax)
     ax2.set_ylim(vo2_ymin, vo2_ymax)
 
@@ -561,9 +569,9 @@ def make_hr_vo2_lactate_graph(
     ax.tick_params(axis="y", colors=COLOR_HR)
     ax2.tick_params(axis="y", colors=COLOR_VO2)
 
-    ticks = list(dict.fromkeys([0.0] + [seg.right for seg in segments]))
+    ticks = list(dict.fromkeys([-LEFT_PAD_SEC, 0.0] + [seg.right for seg in segments]))
     ax.set_xticks(ticks)
-    ax.set_xticklabels([fmt_time(t) for t in ticks], fontsize=7)
+    ax.set_xticklabels(["" if t < 0 else fmt_time(t) for t in ticks], fontsize=7)
     ax.set_xlabel("Time (mm:ss)", fontsize=12)
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
     ax.grid(False, axis="x")
