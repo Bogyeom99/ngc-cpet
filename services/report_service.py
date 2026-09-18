@@ -75,7 +75,7 @@ def build_report_html(
         for i, z in enumerate(zones, start=1)
     )
 
-    lactate_headers = "".join(f"<th>{html.escape(str(p['label']))}</th>" for p in lactates)
+    lactate_headers = "".join(f"<th>{html.escape('All-Out' if str(p['label']) == 'AO' else str(p['label']))}</th>" for p in lactates)
     lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in lactates)
 
     logo_src = _logo_data()
@@ -379,6 +379,13 @@ body {{
   margin-top: 1.5mm;
   border-bottom: 0.55px solid #555;
 }}
+.title-chip {{
+  display: inline-block;
+  background: #EAF6FF;
+  padding: 0.9mm 2.2mm 0.8mm 2.2mm;
+  border-radius: 1.2mm;
+  line-height: 1;
+}}
 </style>
 </head>
 <body>
@@ -388,7 +395,7 @@ body {{
   <div class="main-title">차세대스포츠과학지원센터 체력측정 결과</div>
 
   <div class="section-line">
-    <div class="section-title">선수 정보</div>
+    <div class="section-title"><span class="title-chip">선수 정보</span></div>
     <div class="section-right"><strong>측정날짜:</strong>&nbsp; {html.escape(str(data['test_date']))}</div>
   </div>
   <table class="data-table info-table">
@@ -400,7 +407,7 @@ body {{
   </table>
 
   <div class="section-line">
-    <div class="section-title">선수 체격 및 신체조성</div>
+    <div class="section-title"><span class="title-chip">선수 체격 및 신체조성</span></div>
   </div>
   <table class="data-table info-table">
     <tr>
@@ -411,7 +418,7 @@ body {{
   </table>
 
   <div class="section-line">
-    <div class="section-title">운동 부하 검사 - KISS Protocol</div>
+    <div class="section-title"><span class="title-chip">운동 부하 검사 - KISS Protocol</span></div>
     <div class="section-right"><strong>* 경사도 {html.escape(str(data['grade_percent']))}% 고정</strong></div>
   </div>
   <table class="data-table measure-table">
@@ -425,7 +432,7 @@ body {{
     </tr>
   </table>
 
-  <div class="hr-title">심박수(beats/min)</div>
+  <div class="hr-title"><span class="title-chip">심박수(beats/min)</span></div>
   <div class="hr-grid">
     <table class="stage-table">
       <thead>
@@ -461,7 +468,7 @@ body {{
 
 <section class="page page2">
   <div class="page2-top">
-    <div class="page2-heading">혈중 젖산염(mmol/L)</div>
+    <div class="page2-heading"><span class="title-chip">혈중 젖산염(mmol/L)</span></div>
     <div class="page2-logo">{logo_html}</div>
   </div>
 
