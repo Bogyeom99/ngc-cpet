@@ -132,6 +132,7 @@ body {{
   background: #fff;
 }}
 .page:last-child {{ page-break-after: auto; }}
+.page2 {{ padding-top: 8mm; }}
 .page-logo {{
   display: block;
   width: 75mm;
@@ -140,7 +141,8 @@ body {{
   object-position: right center;
 }}
 .page1-logo {{
-  margin-left: auto;
+  display: flex;
+  justify-content: flex-end;
   margin-bottom: 2.2mm;
 }}
 .main-title {{
