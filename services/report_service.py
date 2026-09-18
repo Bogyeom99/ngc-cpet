@@ -3,6 +3,9 @@ from __future__ import annotations
 import base64
 import html
 from io import BytesIO
+
+import bleach
+from bleach.css_sanitizer import CSSSanitizer
 from pathlib import Path
 
 
@@ -21,7 +24,38 @@ def _logo_data() -> str:
 
 
 def _text_html(value: str) -> str:
-    return html.escape(value or "").replace("\n", "<br>")
+    value = value or ""
+    if "<" not in value:
+        return html.escape(value).replace("\n", "<br>")
+
+    css_sanitizer = CSSSanitizer(
+        allowed_css_properties=[
+            "color",
+            "background-color",
+            "font-weight",
+            "font-style",
+            "text-decoration",
+        ]
+    )
+    return bleach.clean(
+        value,
+        tags=[
+            "p",
+            "br",
+            "span",
+            "strong",
+            "b",
+            "em",
+            "i",
+            "u",
+            "s",
+        ],
+        attributes={
+            "span": ["style"],
+        },
+        css_sanitizer=css_sanitizer,
+        strip=True,
+    )
 
 
 def build_report_html(
@@ -374,6 +408,17 @@ body {{
 .editable-text {{
   font-size: 9.25pt;
   line-height: 1.45;
+}}
+.page1-comment p,
+.lactate-comment p,
+.editable-text p {{
+  margin: 0;
+  padding: 0;
+}}
+.page1-comment span,
+.lactate-comment span,
+.editable-text span {{
+  line-height: inherit;
 }}
 .page2-bottom-line {{
   margin-top: 1.5mm;
