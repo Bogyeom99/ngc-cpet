@@ -7,7 +7,13 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from services.athlete_store import add_athlete, is_configured, list_athletes
+from services.athlete_store import (
+    add_athlete,
+    is_configured,
+    list_athletes,
+    list_measurements,
+    save_measurement,
+)
 from services.excel_export import build_excel_export
 from services.excel_parser import parse_excel, round_half_up
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
@@ -173,26 +179,103 @@ with tab2:
         )
         athlete = st.session_state.athletes[selected_index]
 
+        measurements = []
+        if is_configured() and athlete.get("id") is not None:
+            try:
+                measurements = list_measurements(int(athlete["id"]))
+            except Exception as exc:
+                st.warning(f"기존 측정 기록을 불러오지 못했습니다: {exc}")
+
+        load_saved = st.checkbox(
+            "기존 측정 기록 불러오기",
+            value=False,
+            disabled=not bool(measurements),
+        )
+
+        selected_measurement = None
+        if load_saved and measurements:
+            saved_options = list(range(len(measurements)))
+            saved_index = st.selectbox(
+                "불러올 측정 날짜",
+                saved_options,
+                format_func=lambda i: str(measurements[i]["test_date"]),
+            )
+            selected_measurement = measurements[saved_index]
+
+        measurement_token = (
+            f"{athlete.get('id', athlete['name'])}_"
+            f"{selected_measurement.get('id') if selected_measurement else 'new'}"
+        )
+
+        if st.session_state.get("measurement_token") != measurement_token:
+            st.session_state.measurement_token = measurement_token
+
+            if selected_measurement:
+                st.session_state.measurement_date = dt.date.fromisoformat(
+                    str(selected_measurement["test_date"])
+                )
+                st.session_state.measurement_height = float(
+                    selected_measurement.get("height") or 0
+                )
+                st.session_state.measurement_weight = float(
+                    selected_measurement.get("weight") or 0
+                )
+                st.session_state.measurement_bmi = float(
+                    selected_measurement.get("bmi") or 0
+                )
+                st.session_state.measurement_vo2max = float(
+                    selected_measurement.get("vo2max") or 0
+                )
+                st.session_state.measurement_hrmax = int(
+                    selected_measurement.get("hrmax") or 0
+                )
+                st.session_state.measurement_exercise_time = (
+                    selected_measurement.get("exercise_time") or ""
+                )
+                st.session_state.measurement_load_type = (
+                    selected_measurement.get("load_type") or "Speed"
+                )
+                st.session_state.measurement_max_load = float(
+                    selected_measurement.get("max_load") or 0
+                )
+                st.session_state.measurement_grade = float(
+                    selected_measurement.get("grade_percent") or 0
+                )
+            else:
+                st.session_state.measurement_date = dt.date.today()
+                st.session_state.measurement_height = 0.0
+                st.session_state.measurement_weight = 0.0
+                st.session_state.measurement_bmi = 0.0
+                st.session_state.measurement_vo2max = 0.0
+                st.session_state.measurement_hrmax = 0
+                st.session_state.measurement_exercise_time = ""
+                st.session_state.measurement_load_type = "Speed"
+                st.session_state.measurement_max_load = 0.0
+                st.session_state.measurement_grade = 0.0
+
         c1, c2, c3, c4 = st.columns(4)
 
         test_date = c1.date_input(
             "측정 날짜",
-            dt.date.today(),
+            key="measurement_date",
         )
         height = c2.number_input(
             "신장(cm)",
             min_value=0.0,
             step=0.1,
+            key="measurement_height",
         )
         weight = c3.number_input(
             "체중(kg)",
             min_value=0.0,
             step=0.1,
+            key="measurement_weight",
         )
         bmi = c4.number_input(
             "BMI(kg/m²)",
             min_value=0.0,
             step=0.1,
+            key="measurement_bmi",
         )
 
         c1, c2, c3, c4 = st.columns(4)
@@ -201,20 +284,24 @@ with tab2:
             "최대 산소 섭취량(ml/kg/min)",
             min_value=0.0,
             step=0.01,
+            key="measurement_vo2max",
         )
         hrmax = c2.number_input(
             "최대 심박수(beats/min)",
             min_value=0,
             step=1,
+            key="measurement_hrmax",
         )
         exercise_time = c3.text_input(
             "운동 시간",
             placeholder="예: 30분",
+            key="measurement_exercise_time",
         )
         load_type = c4.radio(
             "부하 단위",
             ["Speed", "Power"],
             horizontal=True,
+            key="measurement_load_type",
         )
 
         load_unit = "km/h" if load_type == "Speed" else "watt"
@@ -224,13 +311,43 @@ with tab2:
             f"최대 {load_type}({load_unit})",
             min_value=0.0,
             step=0.1,
+            key="measurement_max_load",
         )
         grade_percent = c2.number_input(
             "경사도(%)",
             min_value=0.0,
             step=0.1,
             format="%.1f",
+            key="measurement_grade",
         )
+
+        if is_configured() and athlete.get("id") is not None:
+            save_label = (
+                "이 날짜 측정 정보 수정 저장"
+                if selected_measurement
+                else "측정 정보 저장"
+            )
+            if st.button(save_label, use_container_width=True):
+                try:
+                    saved = save_measurement(
+                        athlete_id=int(athlete["id"]),
+                        test_date=test_date.isoformat(),
+                        height=height,
+                        weight=weight,
+                        bmi=bmi,
+                        vo2max=vo2max,
+                        hrmax=hrmax,
+                        exercise_time=exercise_time,
+                        load_type=load_type,
+                        max_load=max_load,
+                        grade_percent=grade_percent,
+                    )
+                    st.success(
+                        f"{athlete['name']} 선수의 "
+                        f"{saved['test_date']} 측정 정보를 저장했습니다."
+                    )
+                except Exception as exc:
+                    st.error(f"측정 정보 저장 중 오류가 발생했습니다: {exc}")
 
         c1, c2 = st.columns(2)
 
