@@ -35,7 +35,7 @@ def build_report_html(
     lactates = [p for p in data.get("lactates", []) if p.get("lactate") is not None]
 
     stage_count = max(len(stages), 1)
-    body_height_mm = 70.0
+    body_height_mm = 79.0
     stage_row_height_mm = body_height_mm / stage_count
     zone_row_height_mm = body_height_mm / 5.0
     stage_font_pt = max(7.5, min(9.4, 9.5 - max(stage_count - 8, 0) * 0.22))
@@ -126,7 +126,7 @@ body {{
 .page {{
   width: 210mm;
   height: 297mm;
-  padding: 10mm 18mm 9mm 18mm;
+  padding: 10mm 24mm 9mm 26mm;
   overflow: hidden;
   page-break-after: always;
   background: #fff;
@@ -134,7 +134,7 @@ body {{
 .page:last-child {{ page-break-after: auto; }}
 .page-logo {{
   display: block;
-  width: 82mm;
+  width: 75mm;
   max-height: 9mm;
   object-fit: contain;
   object-position: right center;
@@ -206,14 +206,14 @@ body {{
 }}
 .hr-grid {{
   width: 100%;
-  height: 79mm;
+  height: 88mm;
   display: grid;
   grid-template-columns: 62% 38%;
   gap: 0;
 }}
 .hr-grid table {{
   width: 100%;
-  height: 79mm;
+  height: 88mm;
   border-collapse: collapse;
   table-layout: fixed;
 }}
@@ -276,7 +276,7 @@ body {{
 }}
 .page1-comment {{
   height: 26mm;
-  font-size: 8.8pt;
+  font-size: 9.5pt;
   line-height: 1.42;
   overflow: hidden;
 }}
@@ -299,12 +299,12 @@ body {{
 }}
 .lactate-table th,
 .lactate-table td {{
-  height: 6.2mm;
+  height: 5.2mm;
   font-size: 8.5pt;
   padding: 0.3mm;
 }}
 .lactate-graph-box {{
-  height: 70mm;
+  height: 50mm;
   margin-top: 1.5mm;
   display: flex;
   align-items: center;
@@ -323,8 +323,8 @@ body {{
   border-top: 0.55px solid #555;
   border-bottom: 0.55px solid #555;
   padding: 1.2mm 1.0mm;
-  font-size: 8.5pt;
-  line-height: 1.38;
+  font-size: 9.2pt;
+  line-height: 1.42;
 }}
 .total-title {{
   height: 6.5mm;
@@ -358,14 +358,14 @@ body {{
   padding-top: 0;
 }}
 .lt-title {{
-  font-size: 9.5pt;
+  font-size: 10.3pt;
   font-weight: 800;
   line-height: 1.15;
   margin-bottom: 0.8mm;
 }}
 .editable-text {{
-  font-size: 8.25pt;
-  line-height: 1.34;
+  font-size: 9.25pt;
+  line-height: 1.45;
 }}
 .page2-bottom-line {{
   margin-top: 1.5mm;
@@ -375,7 +375,7 @@ body {{
 </head>
 <body>
 
-<section class="page">
+<section class="page page1">
   <div class="page1-logo">{logo_html}</div>
   <div class="main-title">차세대스포츠과학지원센터 체력측정 결과</div>
 
@@ -451,7 +451,7 @@ body {{
   <div class="page1-comment">{_text_html(data.get("page1_comment", ""))}</div>
 </section>
 
-<section class="page">
+<section class="page page2">
   <div class="page2-top">
     <div class="page2-heading">혈중 젖산염(mmol/L)</div>
     <div class="page2-logo">{logo_html}</div>
