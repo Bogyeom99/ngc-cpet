@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,8 @@ from services.athlete_store import (
     save_measurement,
 )
 from services.excel_export import build_excel_export
-from services.excel_parser import parse_excel, round_half_up
+from services.excel_parser import is_rest, parse_excel, parse_load, round_half_up
+from services.input_template import build_input_template, parse_lactate_sheet
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
 from services.report_service import build_report_html, html_to_pdf
@@ -361,22 +363,54 @@ with tab2:
             value=True,
         )
 
+        template_bytes = build_input_template()
+        st.download_button(
+            "Excel 입력 양식 받기",
+            template_bytes,
+            file_name="NGC_CPET_입력양식.xlsx",
+            mime=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
+            use_container_width=True,
+        )
+
         uploaded = st.file_uploader(
             "Excel 파일 업로드",
             type=["xlsx", "xlsm"],
+            help=(
+                "Data 시트에는 Time, VO2/kg, Heart Rate, Speed를 입력하고, "
+                "Lactate 시트에는 Stage와 Lactate를 입력합니다."
+            ),
         )
 
         if uploaded is not None:
             try:
                 df, segments, summary = parse_excel(uploaded)
+                lactate_rows = parse_lactate_sheet(uploaded)
+                upload_token = hashlib.sha1(
+                    uploaded.getvalue()
+                ).hexdigest()[:12]
 
                 st.session_state.parsed = {
                     "df": df,
                     "segments": segments,
                     "summary": summary,
+                    "lactate_rows": lactate_rows,
+                    "upload_token": upload_token,
                 }
 
                 st.success("Data 시트를 읽었습니다.")
+                if lactate_rows:
+                    st.success(
+                        f"Lactate 시트에서 혈중 젖산염 "
+                        f"{len(lactate_rows)}개를 읽었습니다."
+                    )
+                else:
+                    st.info(
+                        "Lactate 시트가 없거나 입력값이 없어 "
+                        "분석 탭에서 직접 입력할 수 있습니다."
+                    )
 
                 display_summary = summary.copy()
                 display_summary["Duration"] = display_summary[
@@ -436,20 +470,56 @@ with tab3:
             if not segment.is_rest
         ]
 
+        imported_lactate = parsed.get("lactate_rows", [])
+        rest_lactate = None
+        allout_lactate = None
+        lactate_by_load = {}
+
+        for item in imported_lactate:
+            stage_name = str(item.get("stage", "")).strip()
+            value = item.get("lactate")
+            normalized = stage_name.lower().replace("_", "-").strip()
+
+            if is_rest(stage_name) or normalized == "rest":
+                rest_lactate = value
+                continue
+
+            if normalized in {
+                "ao",
+                "all-out",
+                "all out",
+                "allout",
+            }:
+                allout_lactate = value
+                continue
+
+            load_value = parse_load(stage_name)
+            if load_value is not None:
+                lactate_by_load[round(float(load_value), 6)] = value
+
         stage_rows = []
 
         for i, segment in enumerate(exercise_segments):
-            label = (
-                "AO"
-                if i == len(exercise_segments) - 1
-                else segment.label
-            )
+            is_last = i == len(exercise_segments) - 1
+            label = "AO" if is_last else segment.label
+            lactate_value = None
+
+            if (
+                segment.load is not None
+                and round(float(segment.load), 6) in lactate_by_load
+            ):
+                lactate_value = lactate_by_load[
+                    round(float(segment.load), 6)
+                ]
+
+            if is_last and allout_lactate is not None:
+                lactate_value = allout_lactate
 
             stage_rows.append(
                 {
                     "Stage": label,
                     "Load": segment.load,
-                    "Lactate": None,
+                    "Lactate": lactate_value,
                 }
             )
 
@@ -458,14 +528,23 @@ with tab3:
                 {
                     "Stage": "rest",
                     "Load": np.nan,
-                    "Lactate": None,
+                    "Lactate": rest_lactate,
                 }
             ]
             + stage_rows
         )
 
         st.subheader("혈중 젖산염 입력")
-        st.info("아래 표의 혈중 젖산염 열에 측정된 수치를 입력하세요. 미측정 구간은 비워두면 됩니다.")
+        if imported_lactate:
+            st.info(
+                "Excel의 Lactate 시트에서 값을 불러왔습니다. "
+                "필요한 경우 아래 표에서 수정할 수 있습니다."
+            )
+        else:
+            st.info(
+                "아래 표의 혈중 젖산염 열에 측정된 수치를 입력하세요. "
+                "미측정 구간은 비워두면 됩니다."
+            )
 
         edited = st.data_editor(
             rest_default,
@@ -480,7 +559,10 @@ with tab3:
                     format="%.2f",
                 )
             },
-            key="lactate_editor",
+            key=(
+                "lactate_editor_"
+                + str(parsed.get("upload_token", "manual"))
+            ),
         )
 
         chart_points = []
