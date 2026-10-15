@@ -353,6 +353,12 @@ def parse_excel(
         ):
             load = float(allout_load)
 
+        display_label = (
+            f"{load:g}"
+            if load is not None and not explicit_allout
+            else label
+        )
+
         standard_stage = (
             load is not None
             and not rest
@@ -411,7 +417,7 @@ def parse_excel(
 
         segments.append(
             Segment(
-                label=label,
+                label=display_label,
                 indices=idx,
                 left=left,
                 right=right,
