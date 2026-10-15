@@ -1107,6 +1107,11 @@ with tab4:
                 if meta["load_type"] == "Speed"
                 else "파워"
             )
+            load_text = (
+                f"{round_half_up(item['load'])}"
+                if meta["load_type"] == "Speed"
+                else f"{item['load']:.2f}"
+            )
 
             if name == "LT1":
                 return (
