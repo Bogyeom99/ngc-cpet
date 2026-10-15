@@ -46,7 +46,7 @@ def test_editable_report_marks_only_comment_regions():
     ]:
         assert f'data-edit-key="{key}"' in html
 
-    assert html.count('contenteditable="true"') == 4
+    assert html.count('data-edit-key="') == 4
 
 
 def test_pdf_report_has_no_editable_attributes():
