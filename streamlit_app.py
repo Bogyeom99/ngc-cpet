@@ -264,11 +264,15 @@ with tab2:
                 st.session_state.measurement_grade = float(
                     selected_measurement.get("grade_percent") or 0
                 )
-                st.session_state.measurement_stage_duration = float(
-                    selected_measurement.get("stage_duration_min") or 3
+                st.session_state.measurement_stage_duration = int(
+                    round(float(
+                        selected_measurement.get("stage_duration_min") or 3
+                    ))
                 )
-                st.session_state.measurement_rest_duration = float(
-                    selected_measurement.get("rest_duration_min") or 1
+                st.session_state.measurement_rest_duration = int(
+                    round(float(
+                        selected_measurement.get("rest_duration_min") or 1
+                    ))
                 )
             else:
                 st.session_state.measurement_date = dt.date.today()
@@ -281,8 +285,8 @@ with tab2:
                 st.session_state.measurement_load_type = "Speed"
                 st.session_state.measurement_max_load = 0.0
                 st.session_state.measurement_grade = 0.0
-                st.session_state.measurement_stage_duration = 3.0
-                st.session_state.measurement_rest_duration = 1.0
+                st.session_state.measurement_stage_duration = 3
+                st.session_state.measurement_rest_duration = 1
 
         c1, c2, c3, c4 = st.columns(4)
 
@@ -337,7 +341,7 @@ with tab2:
 
         load_unit = "km/h" if load_type == "Speed" else "watt"
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         max_load = c1.number_input(
             f"최대 {load_type}({load_unit})",
             min_value=0.0,
@@ -353,9 +357,9 @@ with tab2:
         )
         stage_duration_min = c3.number_input(
             "일반 운동 Stage 시간(분)",
-            min_value=0.1,
-            step=0.5,
-            format="%.1f",
+            min_value=1,
+            step=1,
+            format="%d",
             key="measurement_stage_duration",
             help=(
                 "숫자로 입력된 일반 운동 Stage는 실제 기록 길이와 관계없이 "
@@ -364,9 +368,9 @@ with tab2:
         )
         rest_duration_min = c4.number_input(
             "Rest 시간(분)",
-            min_value=0.1,
-            step=0.5,
-            format="%.1f",
+            min_value=1,
+            step=1,
+            format="%d",
             key="measurement_rest_duration",
             help=(
                 "Data 시트의 R 또는 Rest 구간은 실제 기록 길이와 관계없이 "
