@@ -1,9 +1,9 @@
-streamlit>=1.40
-pandas>=2.2
-numpy>=2.0
-openpyxl>=3.1
-matplotlib>=3.9
-weasyprint>=62
-supabase>=2.0
-bleach>=6.2
+streamlit==1.66.0
+pandas==3.0.6
+numpy==2.5.4
+openpyxl==3.1.5
+matplotlib==3.11.2
+weasyprint==70.0
+supabase==2.32.0
+bleach==6.4.0
 streamlit-quill==0.0.3
