@@ -3,17 +3,39 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt pytest
-      - run: python -m py_compile streamlit_app.py services/*.py
-      - run: python -c "from streamlit_quill import st_quill; print('streamlit_quill import ok')"
-      - run: PYTHONPATH=. pytest -q
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Compile Python files
+        run: python -m py_compile streamlit_app.py services/*.py tests/*.py
+
+      - name: Verify critical imports
+        run: |
+          python -c "from services import excel_parser; assert hasattr(excel_parser, 'is_allout'); assert hasattr(excel_parser, 'is_recovery'); assert hasattr(excel_parser, 'parse_excel')"
+          python -c "from streamlit_quill import st_quill; print('streamlit_quill import ok')"
+
+      - name: Run tests
+        env:
+          PYTHONPATH: .
+        run: pytest -q
