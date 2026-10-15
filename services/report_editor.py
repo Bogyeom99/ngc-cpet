@@ -227,6 +227,15 @@ export default function(component) {
     editable.onmouseup = rememberSelection;
     editable.onkeyup = rememberSelection;
     editable.onfocus = rememberSelection;
+    editable.onkeydown = (event) => {
+      if (
+        (event.ctrlKey || event.metaKey)
+        && event.key.toLowerCase() === "s"
+      ) {
+        event.preventDefault();
+        applyButton.click();
+      }
+    };
   });
 
   toolbar.querySelectorAll("[data-cmd]").forEach((button) => {
@@ -268,6 +277,7 @@ export default function(component) {
       editable.onmouseup = null;
       editable.onkeyup = null;
       editable.onfocus = null;
+      editable.onkeydown = null;
     });
   };
 }
