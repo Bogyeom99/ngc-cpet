@@ -1,0 +1,164 @@
+from io import BytesIO
+
+import numpy as np
+import pandas as pd
+
+from services.excel_parser import (
+    is_allout,
+    is_recovery,
+    is_rest,
+    parse_excel,
+)
+from services.input_template import (
+    build_input_template,
+    parse_lactate_sheet,
+)
+
+
+def _excel_bytes(data: pd.DataFrame, lactate: pd.DataFrame | None = None) -> BytesIO:
+    out = BytesIO()
+    with pd.ExcelWriter(out, engine="openpyxl") as writer:
+        data.to_excel(writer, sheet_name="Data", index=False)
+        if lactate is not None:
+            lactate.to_excel(writer, sheet_name="Lactate", index=False)
+    out.seek(0)
+    return out
+
+
+def test_generic_stage_is_normalized_to_configured_duration_without_rest():
+    data = pd.DataFrame(
+        {
+            "Time": list(range(20)),
+            "VO2/kg": np.linspace(10, 30, 20),
+            "Heart Rate": np.linspace(90, 150, 20),
+            "Stage": [3] * 10 + [4.5] * 10,
+        }
+    )
+
+    _, segments, summary = parse_excel(
+        _excel_bytes(data),
+        stage_duration_min=5,
+    )
+
+    assert len(segments) == 2
+    assert all(abs(seg.duration - 300) < 1e-9 for seg in segments)
+    assert summary["Duration_sec"].tolist() == [300.0, 300.0]
+
+
+def test_power_stages_allout_and_recovery_are_supported():
+    data = pd.DataFrame(
+        {
+            "Time": list(range(14)),
+            "VO2/kg": np.linspace(10, 35, 14),
+            "Heart Rate": np.linspace(90, 180, 14),
+            "Stage": (
+                [100] * 3
+                + [150] * 3
+                + ["All-Out"] * 3
+                + ["Recovery"] * 5
+            ),
+        }
+    )
+
+    _, segments, summary = parse_excel(
+        _excel_bytes(data),
+        stage_duration_min=4,
+        allout_load=200,
+    )
+
+    assert [seg.label for seg in segments] == [
+        "100",
+        "150",
+        "All-Out",
+        "Recovery",
+    ]
+    assert segments[0].duration == 240
+    assert segments[1].duration == 240
+    assert segments[2].is_allout
+    assert segments[2].load == 200
+    assert segments[3].is_recovery
+    assert summary["Load"].tolist() == [100.0, 150.0, 200.0]
+
+
+def test_legacy_speed_column_still_works():
+    data = pd.DataFrame(
+        {
+            "Time": list(range(6)),
+            "VO2/kg": [10, 11, 12, 13, 14, 15],
+            "Heart Rate": [90, 92, 94, 96, 98, 100],
+            "Speed": [3, 3, 3, 4.5, 4.5, 4.5],
+        }
+    )
+
+    _, segments, _ = parse_excel(
+        _excel_bytes(data),
+        stage_duration_min=3,
+    )
+
+    assert [seg.load for seg in segments] == [3.0, 4.5]
+
+
+def test_elapsed_seconds_starting_at_zero_are_not_excel_day_fractions():
+    data = pd.DataFrame(
+        {
+            "Time": [0, 1, 2, 3, 4, 5],
+            "VO2/kg": [10, 11, 12, 13, 14, 15],
+            "Heart Rate": [90, 92, 94, 96, 98, 100],
+            "Stage": ["All-Out"] * 6,
+        }
+    )
+
+    df, segments, _ = parse_excel(
+        _excel_bytes(data),
+        allout_load=12,
+    )
+
+    assert df["_raw_time"].tolist() == [0, 1, 2, 3, 4, 5]
+    assert 5.5 <= segments[0].duration <= 6.5
+
+
+def test_lactate_sheet_reads_rest_allout_and_recovery():
+    data = pd.DataFrame(
+        {
+            "Time": [0, 1, 2, 3],
+            "VO2/kg": [10, 11, 12, 13],
+            "Heart Rate": [90, 95, 100, 105],
+            "Stage": [3, 3, 4.5, 4.5],
+        }
+    )
+    lactate = pd.DataFrame(
+        {
+            "Stage": ["Rest", "3", "4.5", "All-Out", "Recovery 1min"],
+            "Lactate": [0.9, 1.1, 1.4, 7.2, 5.1],
+        }
+    )
+
+    rows = parse_lactate_sheet(
+        _excel_bytes(data, lactate)
+    )
+
+    assert len(rows) == 5
+    assert rows[-1]["stage"] == "Recovery 1min"
+    assert rows[-1]["lactate"] == 5.1
+
+
+def test_label_helpers():
+    assert is_rest("R")
+    assert is_rest("rest")
+    assert is_allout("All-Out")
+    assert is_recovery("Recovery 5min")
+
+
+def test_download_template_uses_stage_column():
+    template = BytesIO(build_input_template())
+    df = pd.read_excel(
+        template,
+        sheet_name="Data",
+        engine="openpyxl",
+    )
+    assert df.columns.tolist() == [
+        "Time",
+        "VO2/kg",
+        "Heart Rate",
+        "Stage",
+    ]
