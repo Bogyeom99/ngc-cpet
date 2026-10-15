@@ -263,7 +263,11 @@ body {{
   font-weight: 700;
 }}
 .info-table .info-label {{
+  font-size: 10pt;
+}}
+.info-table td:not(.info-label) {{
   font-size: 9pt;
+  font-weight: 400;
 }}
 .measure-table {{
   font-size: 10pt;
@@ -445,8 +449,8 @@ body {{
   margin-bottom: 0.8mm;
 }}
 .editable-text {{
-  font-size: 10pt;
-  line-height: 1.45;
+  font-size: 9pt;
+  line-height: 1.55;
 }}
 .page1-comment p,
 .page1-comment div,
