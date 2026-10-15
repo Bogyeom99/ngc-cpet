@@ -884,7 +884,8 @@ with tab4:
         )
         if increment > 0:
             protocol_text += (
-                f", 3분마다 {increment:g} {meta['load_unit']} 증가"
+                f", {meta['stage_duration_min']:g}분마다 "
+                f"{increment:g} {meta['load_unit']} 증가"
             )
         protocol_text += (
             f")을 통한 운동부하검사 결과, "
