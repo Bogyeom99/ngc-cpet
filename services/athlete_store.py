@@ -74,7 +74,7 @@ def list_measurements(athlete_id: int) -> list[dict[str, Any]]:
         .table("athlete_measurements")
         .select(
             "id,athlete_id,test_date,height,weight,bmi,vo2max,hrmax,"
-            "exercise_time,load_type,max_load,grade_percent,stage_duration_min,created_at,updated_at"
+            "exercise_time,load_type,max_load,grade_percent,stage_duration_min,rest_duration_min,created_at,updated_at"
         )
         .eq("athlete_id", athlete_id)
         .order("test_date", desc=True)
@@ -96,6 +96,7 @@ def save_measurement(
     max_load: float,
     grade_percent: float,
     stage_duration_min: float,
+    rest_duration_min: float,
 ) -> dict[str, Any]:
     if not is_configured():
         raise RuntimeError("Supabase 연결 정보가 설정되지 않았습니다.")
@@ -113,6 +114,7 @@ def save_measurement(
         "max_load": max_load,
         "grade_percent": grade_percent,
         "stage_duration_min": stage_duration_min,
+        "rest_duration_min": rest_duration_min,
     }
 
     response = (
