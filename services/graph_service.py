@@ -758,12 +758,29 @@ def make_hr_vo2_lactate_graph(
         lac_y.append(float(value))
 
     if lac_x:
-        ax3.plot(lac_x, lac_y, color=COLOR_LAC_COMBINED, lw=1.7, marker="o", markersize=4.5, zorder=6)
-        for x, y in zip(lac_x, lac_y):
+        ax3.plot(
+            lac_x,
+            lac_y,
+            color=COLOR_LAC_COMBINED,
+            lw=1.7,
+            marker="o",
+            markersize=4.5,
+            zorder=6,
+        )
+        label_offsets = _lactate_label_offsets(
+            lac_x,
+            lac_y,
+            x_min,
+            x_max,
+        )
+        for (x, y), offset in zip(
+            zip(lac_x, lac_y),
+            label_offsets,
+        ):
             ax3.annotate(
                 f"{y:.2f}",
                 (x, y),
-                xytext=(0, 7),
+                xytext=offset,
                 textcoords="offset points",
                 ha="center",
                 va="bottom",
@@ -771,7 +788,12 @@ def make_hr_vo2_lactate_graph(
                 fontsize=8,
                 fontweight="bold",
                 zorder=7,
-                bbox=dict(boxstyle="round,pad=0.20", facecolor="white", edgecolor="none", alpha=0.65),
+                bbox=dict(
+                    boxstyle="round,pad=0.20",
+                    facecolor="white",
+                    edgecolor="none",
+                    alpha=0.72,
+                ),
             )
 
     threshold_hr: dict[str, float | None] = {"LT1": None, "LT2": None}
