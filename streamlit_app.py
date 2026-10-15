@@ -6,8 +6,6 @@ import hashlib
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
-from streamlit_quill import st_quill
 
 from services.athlete_store import (
     add_athlete,
@@ -21,6 +19,7 @@ from services import excel_parser
 from services.input_template import build_input_template, parse_lactate_sheet
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
+from services.report_editor import render_report_editor
 from services.report_service import build_report_html, html_to_pdf
 
 
@@ -1164,58 +1163,44 @@ with tab4:
             default_lt_comment(lt2_item, "LT2"),
         )
 
-        st.subheader("결과지 문구 편집")
-        st.caption(
-            "문구 일부를 선택한 뒤 색상 도구에서 빨간색 등 원하는 글자색을 적용할 수 있습니다."
+        editor_key = f"report_editor_{token}"
+        editor_fields = {
+            "page1_comment": page1_key,
+            "lactate_comment": lactate_key,
+            "lt1_comment": lt1_key,
+            "lt2_comment": lt2_key,
+        }
+
+        editor_state = st.session_state.get(editor_key)
+        saved_content = None
+        if editor_state is not None:
+            if hasattr(editor_state, "get"):
+                saved_content = editor_state.get("content")
+            else:
+                saved_content = getattr(
+                    editor_state,
+                    "content",
+                    None,
+                )
+
+        if isinstance(saved_content, dict):
+            for field, state_key in editor_fields.items():
+                value = saved_content.get(field)
+                if isinstance(value, str):
+                    st.session_state[state_key] = value
+
+        page1_comment = st.session_state[page1_key]
+        lactate_comment = st.session_state[lactate_key]
+        lt1_comment = (
+            st.session_state[lt1_key]
+            if lt1_item.get("show")
+            else ""
         )
-
-        rich_toolbar = [
-            ["bold", "italic", "underline"],
-            [{"color": []}],
-            ["clean"],
-        ]
-
-        st.markdown("**1페이지 그래프 아래 결과 문구**")
-        page1_comment = st_quill(
-            value=st.session_state[page1_key],
-            html=True,
-            toolbar=rich_toolbar,
-            key=f"{page1_key}_editor",
-        ) or ""
-        st.session_state[page1_key] = page1_comment
-
-        st.markdown("**2페이지 혈중 젖산염 그래프 아래 결과 문구**")
-        lactate_comment = st_quill(
-            value=st.session_state[lactate_key],
-            html=True,
-            toolbar=rich_toolbar,
-            key=f"{lactate_key}_editor",
-        ) or ""
-        st.session_state[lactate_key] = lactate_comment
-
-        if lt1_item.get("show"):
-            st.markdown("**2페이지 LT1 분석 결과 문구**")
-            lt1_comment = st_quill(
-                value=st.session_state[lt1_key],
-                html=True,
-                toolbar=rich_toolbar,
-                key=f"{lt1_key}_editor",
-            ) or ""
-            st.session_state[lt1_key] = lt1_comment
-        else:
-            lt1_comment = ""
-
-        if lt2_item.get("show"):
-            st.markdown("**2페이지 LT2 분석 결과 문구**")
-            lt2_comment = st_quill(
-                value=st.session_state[lt2_key],
-                html=True,
-                toolbar=rich_toolbar,
-                key=f"{lt2_key}_editor",
-            ) or ""
-            st.session_state[lt2_key] = lt2_comment
-        else:
-            lt2_comment = ""
+        lt2_comment = (
+            st.session_state[lt2_key]
+            if lt2_item.get("show")
+            else ""
+        )
 
         report_data = {
             "name": meta["athlete"]["name"],
@@ -1247,17 +1232,49 @@ with tab4:
             "lt2_comment": lt2_comment,
         }
 
+        editable_html = build_report_html(
+            report_data,
+            analysis["basic_png"],
+            analysis["lactate_png"],
+            analysis["combined_report_png"],
+            editable=True,
+        )
+
+        editor_result = render_report_editor(
+            editable_html,
+            {
+                "page1_comment": page1_comment,
+                "lactate_comment": lactate_comment,
+                "lt1_comment": lt1_comment,
+                "lt2_comment": lt2_comment,
+            },
+            key=editor_key,
+        )
+
+        applied_content = getattr(
+            editor_result,
+            "content",
+            None,
+        )
+        if isinstance(applied_content, dict):
+            changed = False
+            for field, state_key in editor_fields.items():
+                value = applied_content.get(field)
+                if (
+                    isinstance(value, str)
+                    and value != st.session_state[state_key]
+                ):
+                    st.session_state[state_key] = value
+                    changed = True
+
+            if changed:
+                st.rerun()
+
         html = build_report_html(
             report_data,
             analysis["basic_png"],
             analysis["lactate_png"],
             analysis["combined_report_png"],
-        )
-
-        components.html(
-            html,
-            height=1500,
-            scrolling=True,
         )
 
         excel_bytes = build_excel_export(
