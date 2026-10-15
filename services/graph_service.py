@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 import math
+import re
 
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
@@ -352,7 +353,7 @@ def make_lactate_graph(points: list[dict]) -> bytes:
     ax.set_ylim(0, upper)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=11)
-    ax.set_xlabel("Speed (km/h)", fontsize=16, labelpad=16)
+    ax.set_xlabel("Stage", fontsize=16, labelpad=16)
     ax.set_ylabel("혈중 젖산염 (mmol/L)", fontsize=16, labelpad=14)
 
     ax.grid(axis="y", color="#D9D9D9", linewidth=1)
@@ -371,17 +372,54 @@ def make_lactate_graph(points: list[dict]) -> bytes:
     return out.getvalue()
 
 
-def _lactate_x_for_stage(segments: list[Segment], stage_label: str, load_value: float | None) -> float | None:
+def _lactate_x_for_stage(
+    segments: list[Segment],
+    stage_label: str,
+    load_value: float | None,
+) -> float | None:
     label = str(stage_label).strip()
-    if label.lower() == "rest":
+    normalized = label.upper().replace("_", " ")
+
+    if normalized in {"REST", "R"}:
+        rest_segments = [
+            seg for seg in segments if getattr(seg, "is_rest", False)
+        ]
+        if rest_segments:
+            return rest_segments[0].center
         return -LEFT_PAD_SEC / 2
 
     exercise = [seg for seg in segments if seg.load is not None]
     if not exercise:
         return None
 
-    if label.upper() == "AO":
-        return exercise[-1].right
+    if normalized in {"AO", "ALL-OUT", "ALL OUT", "ALLOUT"}:
+        allout_segments = [
+            seg for seg in segments if getattr(seg, "is_allout", False)
+        ]
+        return (
+            allout_segments[0].right
+            if allout_segments
+            else exercise[-1].right
+        )
+
+    if normalized.startswith("REC"):
+        recovery_segments = [
+            seg for seg in segments if getattr(seg, "is_recovery", False)
+        ]
+        if not recovery_segments:
+            return None
+
+        for seg in recovery_segments:
+            if str(seg.label).strip().upper() == normalized:
+                return seg.right
+
+        match = re.search(r"(\d+(?:\.\d+)?)", label)
+        if match:
+            requested_sec = float(match.group(1)) * 60.0
+            first = recovery_segments[0]
+            return min(first.left + requested_sec, recovery_segments[-1].right)
+
+        return recovery_segments[-1].right
 
     if load_value is not None:
         for seg in exercise:
