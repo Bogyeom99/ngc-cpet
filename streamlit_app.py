@@ -520,7 +520,7 @@ with tab3:
                 and not segment.is_recovery
             )
         ]
-        explicit_allout = next(
+        allout_segment = next(
             (
                 segment
                 for segment in all_segments
@@ -588,7 +588,7 @@ with tab3:
         # keep treating the final numeric exercise stage as All-Out.
         fallback_allout = (
             numeric_segments[-1]
-            if explicit_allout is None and numeric_segments
+            if allout_segment is None and numeric_segments
             else None
         )
 
@@ -620,20 +620,30 @@ with tab3:
                 }
             )
 
-        if explicit_allout is not None:
+        if allout_segment is not None:
+            allout_load_value = (
+                allout_segment.load
+                if allout_segment.load is not None
+                else (
+                    max_load
+                    if max_load > 0
+                    else np.nan
+                )
+            )
+            allout_value = allout_lactate
+            if (
+                allout_value is None
+                and not pd.isna(allout_load_value)
+            ):
+                allout_value = lactate_by_load.get(
+                    round(float(allout_load_value), 6)
+                )
+
             initial_rows.append(
                 {
                     "Stage": "AO",
-                    "Load": (
-                        explicit_allout.load
-                        if explicit_allout.load is not None
-                        else (
-                            max_load
-                            if max_load > 0
-                            else np.nan
-                        )
-                    ),
-                    "Lactate": allout_lactate,
+                    "Load": allout_load_value,
+                    "Lactate": allout_value,
                 }
             )
 
