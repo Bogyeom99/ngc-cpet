@@ -94,36 +94,48 @@ def _label_rows(
     return assigned
 
 
+def _display_segment_label(seg: Segment) -> str:
+    if getattr(seg, "is_allout", False):
+        return "AO"
+
+    label = str(seg.label).strip()
+    if getattr(seg, "is_recovery", False):
+        match = re.search(
+            r"(\d+(?:\.\d+)?)",
+            label,
+        )
+        if match:
+            value = float(match.group(1))
+            value_text = (
+                f"{int(value)}"
+                if value.is_integer()
+                else f"{value:g}"
+            )
+            return f"Rec {value_text}"
+        return "Rec"
+
+    return label
+
+
 def _draw_segment_labels(
     ax,
     segments: list[Segment],
     x_min: float,
     x_max: float,
 ) -> None:
-    labels = [
-        "All-Out"
-        if getattr(seg, "is_allout", False)
-        else str(seg.label)
-        for seg in segments
-    ]
-    rows = _label_rows(
-        [seg.center for seg in segments],
-        labels,
-        x_min,
-        x_max,
-        rows=3,
-    )
+    del x_min, x_max
 
-    for seg, label, row in zip(segments, labels, rows):
+    for seg in segments:
+        label = _display_segment_label(seg)
         ax.annotate(
             label,
             xy=(seg.center, 1.0),
             xycoords=("data", "axes fraction"),
-            xytext=(0, -7 - row * 10),
+            xytext=(0, -7),
             textcoords="offset points",
             ha="center",
             va="top",
-            fontsize=8.2 if len(label) <= 9 else 7.6,
+            fontsize=8.5,
             color="black",
             zorder=5,
             annotation_clip=False,
