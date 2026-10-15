@@ -8,7 +8,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 
-DATA_COLUMNS = ["Time", "VO2/kg", "Heart Rate", "Speed"]
+DATA_COLUMNS = ["Time", "VO2/kg", "Heart Rate", "Stage"]
 LACTATE_COLUMNS = ["Stage", "Lactate"]
 
 
@@ -112,10 +112,10 @@ def build_input_template() -> bytes:
 
     guide_rows = [
         ("Data 시트", "운동 중 연속 측정 자료를 입력합니다."),
-        ("필수 열", "Time / VO2/kg / Heart Rate / Speed"),
+        ("필수 열", "Time / VO2/kg / Heart Rate / Stage"),
         (
-            "Speed 작성",
-            "운동 Stage는 3, 4.5, 6처럼 부하값을 입력하고 휴식 구간은 R 또는 REST로 입력합니다.",
+            "Stage 작성",
+            "일반 운동 Stage에는 3, 4.5, 6 또는 100, 150, 200처럼 부하값만 입력합니다. 부하 단위는 웹에서 Speed 또는 Power로 선택합니다.",
         ),
         (
             "Time 작성",
@@ -123,8 +123,8 @@ def build_input_template() -> bytes:
         ),
         ("Lactate 시트", "각 Stage 종료 후 측정한 혈중 젖산염 값을 입력합니다."),
         (
-            "Stage 작성",
-            "Rest, 각 운동강도(예: 3km/h, 4.5km/h), All-Out 순으로 입력합니다.",
+            "Lactate Stage 작성",
+            "Rest가 있다면 Rest를 입력하고, 각 운동강도와 All-Out 및 Recovery 측정값을 순서대로 입력합니다. Rest가 없으면 생략할 수 있습니다.",
         ),
         (
             "Lactate 작성",
@@ -132,7 +132,7 @@ def build_input_template() -> bytes:
         ),
         (
             "주의",
-            "Data 시트의 운동강도와 Lactate 시트의 Stage 숫자가 서로 일치해야 자동 연결됩니다.",
+            "Data 시트의 숫자 Stage는 웹에서 설정한 일반 운동 Stage 시간으로 자동 정규화됩니다. Rest, All-Out, Recovery는 기록된 실제 시간을 사용합니다.",
         ),
     ]
 
@@ -158,10 +158,10 @@ def build_input_template() -> bytes:
     guide.cell(row=row, column=1).font = Font(bold=True)
     row += 1
     examples = [
-        ("Data Speed", "3 → R → 4.5 → R → 6 → R → 7.5 ..."),
+        ("Data Stage 예시", "Speed: 3 → R → 4.5 → R → 6 / Power: 100 → R → 150 → R → 200"),
         (
             "Lactate Stage",
-            "Rest → 3km/h → 4.5km/h → 6km/h → 7.5km/h → ... → All-Out",
+            "Rest → 3 → 4.5 → 6 → ... → All-Out → Recovery 1min → Recovery 5min",
         ),
         (
             "Lactate",
