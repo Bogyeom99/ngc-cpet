@@ -25,13 +25,13 @@ def _excel_bytes(data: pd.DataFrame, lactate: pd.DataFrame | None = None) -> Byt
     return out
 
 
-def test_generic_stage_is_normalized_to_configured_duration_without_rest():
+def test_generic_stage_is_normalized_and_final_numeric_stage_is_allout():
     data = pd.DataFrame(
         {
-            "Time": list(range(20)),
-            "VO2/kg": np.linspace(10, 30, 20),
-            "Heart Rate": np.linspace(90, 150, 20),
-            "Stage": [3] * 10 + [4.5] * 10,
+            "Time": list(range(30)),
+            "VO2/kg": np.linspace(10, 30, 30),
+            "Heart Rate": np.linspace(90, 150, 30),
+            "Stage": [3] * 10 + [4.5] * 10 + [6] * 10,
         }
     )
 
@@ -40,9 +40,13 @@ def test_generic_stage_is_normalized_to_configured_duration_without_rest():
         stage_duration_min=5,
     )
 
-    assert len(segments) == 2
-    assert all(abs(seg.duration - 300) < 1e-9 for seg in segments)
-    assert summary["Duration_sec"].tolist() == [300.0, 300.0]
+    assert len(segments) == 3
+    assert segments[0].duration == 300
+    assert segments[1].duration == 300
+    assert segments[2].is_allout
+    assert 9.5 <= segments[2].duration <= 10.5
+    assert segments[2].load == 6.0
+    assert summary["Stage"].tolist() == ["3", "4.5", "All-Out"]
 
 
 def test_power_stages_allout_and_recovery_are_supported():
@@ -115,6 +119,30 @@ def test_elapsed_seconds_starting_at_zero_are_not_excel_day_fractions():
 
     assert df["_raw_time"].tolist() == [0, 1, 2, 3, 4, 5]
     assert 5.5 <= segments[0].duration <= 6.5
+
+
+def test_lactate_sheet_uses_numeric_final_stage_for_allout():
+    data = pd.DataFrame(
+        {
+            "Time": [0, 1, 2, 3, 4, 5],
+            "VO2/kg": [10, 11, 12, 13, 14, 15],
+            "Heart Rate": [90, 95, 100, 105, 110, 115],
+            "Stage": [14, 14, 14, 16, 16, 16],
+        }
+    )
+    lactate = pd.DataFrame(
+        {
+            "Stage": [14, 16, "Recovery 1min", "Recovery 5min"],
+            "Lactate": [3.5, 7.8, 6.2, 3.1],
+        }
+    )
+
+    rows = parse_lactate_sheet(
+        _excel_bytes(data, lactate)
+    )
+
+    assert rows[1]["stage"] == "16"
+    assert rows[1]["lactate"] == 7.8
 
 
 def test_lactate_sheet_reads_rest_allout_and_recovery():
