@@ -22,7 +22,7 @@ _EDITOR_HTML = """
     <button type="button" id="ngc-apply" class="ngc-apply">수정 내용 적용</button>
   </div>
   <div class="ngc-editor-help">
-    연한 점선 영역의 문구를 직접 수정할 수 있습니다. 수정이 끝나면 상단의 '수정 내용 적용'을 누르세요.
+    연한 점선 영역의 문구를 직접 수정할 수 있습니다. 글자색과 서식은 선택 즉시 저장되며, 문구 내용 수정은 '수정 내용 적용'을 누르세요.
   </div>
   <div id="ngc-report-root"></div>
 </div>
@@ -226,8 +226,47 @@ export default function(component) {
     return editable && host.contains(editable) ? editable : null;
   };
 
+  const getEditorSelection = () => {
+    if (
+      parentElement
+      && typeof parentElement.getSelection === "function"
+    ) {
+      const shadowSelection = parentElement.getSelection();
+      if (shadowSelection) return shadowSelection;
+    }
+
+    const ownerDocument = parentElement.ownerDocument || document;
+    if (
+      ownerDocument
+      && typeof ownerDocument.getSelection === "function"
+    ) {
+      const documentSelection = ownerDocument.getSelection();
+      if (documentSelection) return documentSelection;
+    }
+
+    return window.getSelection();
+  };
+
+  const collectContent = () => {
+    const content = {};
+    editables.forEach((editable) => {
+      const key = editable.getAttribute("data-edit-key");
+      if (key) content[key] = editable.innerHTML;
+    });
+    return content;
+  };
+
+  const commitContent = (message) => {
+    setStateValue("content", collectContent());
+    dirty = false;
+    applyButton.classList.remove("ngc-dirty");
+    if (status) {
+      status.textContent = message || "수정 내용이 적용되었습니다.";
+    }
+  };
+
   const rememberSelection = () => {
-    const selection = window.getSelection();
+    const selection = getEditorSelection();
     if (!selection || selection.rangeCount === 0) return;
     const range = selection.getRangeAt(0);
     if (!editableForRange(range)) return;
@@ -239,7 +278,7 @@ export default function(component) {
     const editable = editableForRange(savedRange);
     if (!editable) return false;
     editable.focus();
-    const selection = window.getSelection();
+    const selection = getEditorSelection();
     if (!selection) return false;
     selection.removeAllRanges();
     selection.addRange(savedRange);
@@ -279,7 +318,7 @@ export default function(component) {
   const applyInlineStyle = (styleName, styleValue) => {
     if (!restoreSelection()) return;
 
-    const selection = window.getSelection();
+    const selection = getEditorSelection();
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
@@ -316,15 +355,18 @@ export default function(component) {
     }
 
     if (wrappers.length) {
-      const nextRange = document.createRange();
-      nextRange.setStartBefore(wrappers[0]);
-      nextRange.setEndAfter(wrappers[wrappers.length - 1]);
+      const caretRange = document.createRange();
+      caretRange.setStartAfter(
+        wrappers[wrappers.length - 1]
+      );
+      caretRange.collapse(true);
       selection.removeAllRanges();
-      selection.addRange(nextRange);
-      savedRange = nextRange.cloneRange();
+      selection.addRange(caretRange);
+      savedRange = null;
     }
 
     markDirty();
+    commitContent("서식이 바로 적용되었습니다.");
   };
 
   const runCommand = (command) => {
@@ -345,6 +387,7 @@ export default function(component) {
     document.execCommand(command, false, null);
     rememberSelection();
     markDirty();
+    commitContent("서식이 바로 적용되었습니다.");
   };
 
   editables.forEach((editable) => {
@@ -382,16 +425,7 @@ export default function(component) {
 
   applyButton.onmousedown = (event) => event.preventDefault();
   applyButton.onclick = () => {
-    const content = {};
-    editables.forEach((editable) => {
-      const key = editable.getAttribute("data-edit-key");
-      if (key) content[key] = editable.innerHTML;
-    });
-
-    setStateValue("content", content);
-    dirty = false;
-    applyButton.classList.remove("ngc-dirty");
-    if (status) status.textContent = "수정 내용이 적용되었습니다.";
+    commitContent("수정 내용이 적용되었습니다.");
   };
 
   return () => {
