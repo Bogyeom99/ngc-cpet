@@ -172,12 +172,16 @@ def _actual_duration(raw: np.ndarray) -> float:
 def parse_excel(
     uploaded_file,
     stage_duration_min: float = 3.0,
+    rest_duration_min: float = 1.0,
     allout_load: float | None = None,
 ) -> tuple[pd.DataFrame, list[Segment], pd.DataFrame]:
     if not np.isfinite(float(stage_duration_min)) or stage_duration_min <= 0:
         raise ValueError("일반 운동 Stage 시간은 0보다 커야 합니다.")
+    if not np.isfinite(float(rest_duration_min)) or rest_duration_min <= 0:
+        raise ValueError("Rest 시간은 0보다 커야 합니다.")
 
     stage_duration_sec = float(stage_duration_min) * 60.0
+    rest_duration_sec = float(rest_duration_min) * 60.0
     raw_bytes = (
         uploaded_file.getvalue()
         if hasattr(uploaded_file, "getvalue")
@@ -366,8 +370,12 @@ def parse_excel(
             and not allout
         )
 
-        if standard_stage:
-            duration = stage_duration_sec
+        if standard_stage or rest:
+            duration = (
+                stage_duration_sec
+                if standard_stage
+                else rest_duration_sec
+            )
             if len(raw) == 1:
                 xvals = np.array(
                     [current + duration / 2.0]
