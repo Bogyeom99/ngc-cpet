@@ -128,7 +128,7 @@ with tab1:
             st.session_state.athlete_store_error = str(exc)
 
     with st.form("athlete_form", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
 
         name = c1.text_input("선수 이름")
         sex = c2.selectbox("성별", ["남", "여"])
@@ -267,6 +267,9 @@ with tab2:
                 st.session_state.measurement_stage_duration = float(
                     selected_measurement.get("stage_duration_min") or 3
                 )
+                st.session_state.measurement_rest_duration = float(
+                    selected_measurement.get("rest_duration_min") or 1
+                )
             else:
                 st.session_state.measurement_date = dt.date.today()
                 st.session_state.measurement_height = 0.0
@@ -279,6 +282,7 @@ with tab2:
                 st.session_state.measurement_max_load = 0.0
                 st.session_state.measurement_grade = 0.0
                 st.session_state.measurement_stage_duration = 3.0
+                st.session_state.measurement_rest_duration = 1.0
 
         c1, c2, c3, c4 = st.columns(4)
 
@@ -358,6 +362,17 @@ with tab2:
                 "이 시간으로 그래프에 맞춰 표시됩니다."
             ),
         )
+        rest_duration_min = c4.number_input(
+            "Rest 시간(분)",
+            min_value=0.1,
+            step=0.5,
+            format="%.1f",
+            key="measurement_rest_duration",
+            help=(
+                "Data 시트의 R 또는 Rest 구간은 실제 기록 길이와 관계없이 "
+                "이 시간으로 그래프에 맞춰 표시됩니다."
+            ),
+        )
 
         if is_configured() and athlete.get("id") is not None:
             save_label = (
@@ -380,6 +395,7 @@ with tab2:
                         max_load=max_load,
                         grade_percent=grade_percent,
                         stage_duration_min=stage_duration_min,
+                        rest_duration_min=rest_duration_min,
                     )
                     st.success(
                         f"{athlete['name']} 선수의 "
@@ -417,7 +433,7 @@ with tab2:
             help=(
                 "Data 시트에는 Time, VO2/kg, Heart Rate, Stage를 입력하고, "
                 "Lactate 시트에는 Stage와 Lactate를 입력합니다. "
-                "Data의 숫자 Stage는 위에서 설정한 일반 운동 Stage 시간으로 정규화됩니다."
+                "Data의 숫자 Stage와 Rest는 위에서 설정한 시간으로 정규화됩니다."
             ),
         )
 
@@ -426,13 +442,14 @@ with tab2:
                 df, segments, summary = excel_parser.parse_excel(
                     uploaded,
                     stage_duration_min=stage_duration_min,
+                    rest_duration_min=rest_duration_min,
                     allout_load=max_load if max_load > 0 else None,
                 )
                 lactate_rows = parse_lactate_sheet(uploaded)
                 upload_token = hashlib.sha1(
                     uploaded.getvalue()
                     + (
-                        f"|{load_type}|{stage_duration_min}|{max_load}"
+                        f"|{load_type}|{stage_duration_min}|{rest_duration_min}|{max_load}"
                     ).encode("utf-8")
                 ).hexdigest()[:12]
 
@@ -496,6 +513,7 @@ with tab2:
             "max_load": max_load,
             "grade_percent": grade_percent,
             "stage_duration_min": stage_duration_min,
+            "rest_duration_min": rest_duration_min,
             "show_lt1": show_lt1,
             "show_lt2": show_lt2,
         }
