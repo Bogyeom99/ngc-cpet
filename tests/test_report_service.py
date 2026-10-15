@@ -119,3 +119,34 @@ def test_report_heading_and_measure_table_typography():
     assert "white-space: nowrap;" in html
     assert '<col style="width:36%">' in html
     assert '<col style="width:32%">' in html
+
+
+
+def test_lactate_table_stays_within_page_width():
+    data = _report_data()
+    data["lactates"] = [
+        {"label": "Rest", "lactate": 1.56},
+        {"label": "5.4", "lactate": 1.50},
+        {"label": "7.2", "lactate": 1.61},
+        {"label": "9", "lactate": 1.52},
+        {"label": "10.8", "lactate": 1.61},
+        {"label": "12.6", "lactate": 2.11},
+        {"label": "14.4", "lactate": 3.14},
+        {"label": "16.2", "lactate": 6.00},
+        {"label": "18", "lactate": 10.09},
+        {"label": "AO", "lactate": 10.15},
+        {"label": "Recovery 5min", "lactate": 9.34},
+    ]
+
+    html = build_report_html(
+        data,
+        b"graph",
+        b"lactate",
+        b"combined",
+    )
+
+    assert "<th>AO</th>" in html
+    assert "<th>Rec 5</th>" in html
+    assert "table-layout: fixed;" in html
+    assert "width: 100%;" in html
+    assert "white-space: nowrap;" in html
