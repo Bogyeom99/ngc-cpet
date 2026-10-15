@@ -17,7 +17,14 @@ from services.athlete_store import (
     save_measurement,
 )
 from services.excel_export import build_excel_export
-from services.excel_parser import is_rest, parse_excel, parse_load, round_half_up
+from services.excel_parser import (
+    is_allout,
+    is_recovery,
+    is_rest,
+    parse_excel,
+    parse_load,
+    round_half_up,
+)
 from services.input_template import build_input_template, parse_lactate_sheet
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
@@ -244,6 +251,9 @@ with tab2:
                 st.session_state.measurement_grade = float(
                     selected_measurement.get("grade_percent") or 0
                 )
+                st.session_state.measurement_stage_duration = float(
+                    selected_measurement.get("stage_duration_min") or 3
+                )
             else:
                 st.session_state.measurement_date = dt.date.today()
                 st.session_state.measurement_height = 0.0
@@ -255,6 +265,7 @@ with tab2:
                 st.session_state.measurement_load_type = "Speed"
                 st.session_state.measurement_max_load = 0.0
                 st.session_state.measurement_grade = 0.0
+                st.session_state.measurement_stage_duration = 3.0
 
         c1, c2, c3, c4 = st.columns(4)
 
@@ -309,7 +320,7 @@ with tab2:
 
         load_unit = "km/h" if load_type == "Speed" else "watt"
 
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         max_load = c1.number_input(
             f"최대 {load_type}({load_unit})",
             min_value=0.0,
@@ -322,6 +333,17 @@ with tab2:
             step=0.1,
             format="%.1f",
             key="measurement_grade",
+        )
+        stage_duration_min = c3.number_input(
+            "일반 운동 Stage 시간(분)",
+            min_value=0.1,
+            step=0.5,
+            format="%.1f",
+            key="measurement_stage_duration",
+            help=(
+                "숫자로 입력된 일반 운동 Stage는 실제 기록 길이와 관계없이 "
+                "이 시간으로 그래프에 맞춰 표시됩니다."
+            ),
         )
 
         if is_configured() and athlete.get("id") is not None:
@@ -344,6 +366,7 @@ with tab2:
                         load_type=load_type,
                         max_load=max_load,
                         grade_percent=grade_percent,
+                        stage_duration_min=stage_duration_min,
                     )
                     st.success(
                         f"{athlete['name']} 선수의 "
@@ -379,14 +402,18 @@ with tab2:
             "Excel 파일 업로드",
             type=["xlsx", "xlsm"],
             help=(
-                "Data 시트에는 Time, VO2/kg, Heart Rate, Speed를 입력하고, "
-                "Lactate 시트에는 Stage와 Lactate를 입력합니다."
+                "Data 시트에는 Time, VO2/kg, Heart Rate, Stage를 입력하고, "
+                "Lactate 시트에는 Stage와 Lactate를 입력합니다. "
+                "Data의 숫자 Stage는 위에서 설정한 일반 운동 Stage 시간으로 정규화됩니다."
             ),
         )
 
         if uploaded is not None:
             try:
-                df, segments, summary = parse_excel(uploaded)
+                df, segments, summary = parse_excel(
+                    uploaded,
+                    stage_duration_min=stage_duration_min,
+                )
                 lactate_rows = parse_lactate_sheet(uploaded)
                 upload_token = hashlib.sha1(
                     uploaded.getvalue()
@@ -451,6 +478,7 @@ with tab2:
             "load_unit": load_unit,
             "max_load": max_load,
             "grade_percent": grade_percent,
+            "stage_duration_min": stage_duration_min,
             "show_lt1": show_lt1,
             "show_lt2": show_lt2,
         }
@@ -467,30 +495,35 @@ with tab3:
         exercise_segments = [
             segment
             for segment in parsed["segments"]
-            if not segment.is_rest
+            if segment.load is not None
         ]
 
         imported_lactate = parsed.get("lactate_rows", [])
         rest_lactate = None
         allout_lactate = None
         lactate_by_load = {}
+        recovery_lactates = []
 
         for item in imported_lactate:
             stage_name = str(item.get("stage", "")).strip()
             value = item.get("lactate")
-            normalized = stage_name.lower().replace("_", "-").strip()
 
-            if is_rest(stage_name) or normalized == "rest":
+            if is_rest(stage_name):
                 rest_lactate = value
                 continue
 
-            if normalized in {
-                "ao",
-                "all-out",
-                "all out",
-                "allout",
-            }:
+            if is_allout(stage_name):
                 allout_lactate = value
+                continue
+
+            if is_recovery(stage_name):
+                recovery_lactates.append(
+                    {
+                        "Stage": stage_name,
+                        "Load": np.nan,
+                        "Lactate": value,
+                    }
+                )
                 continue
 
             load_value = parse_load(stage_name)
@@ -523,16 +556,23 @@ with tab3:
                 }
             )
 
-        rest_default = pd.DataFrame(
-            [
+        initial_rows = []
+        has_rest = any(
+            segment.is_rest
+            for segment in parsed["segments"]
+        )
+        if has_rest or rest_lactate is not None:
+            initial_rows.append(
                 {
                     "Stage": "rest",
                     "Load": np.nan,
                     "Lactate": rest_lactate,
                 }
-            ]
-            + stage_rows
-        )
+            )
+
+        initial_rows.extend(stage_rows)
+        initial_rows.extend(recovery_lactates)
+        rest_default = pd.DataFrame(initial_rows)
 
         st.subheader("혈중 젖산염 입력")
         if imported_lactate:
