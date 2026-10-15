@@ -598,7 +598,7 @@ with tab3:
                 and segment is fallback_allout
             )
             label = (
-                "AO"
+                "All-Out"
                 if is_fallback_allout
                 else segment.label
             )
@@ -641,7 +641,7 @@ with tab3:
 
             initial_rows.append(
                 {
-                    "Stage": "AO",
+                    "Stage": "All-Out",
                     "Load": allout_load_value,
                     "Lactate": allout_value,
                 }
