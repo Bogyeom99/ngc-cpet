@@ -1040,10 +1040,15 @@ with tab4:
             else 0
         )
 
-        protocol_text = (
-            f"프로토콜(경사 {meta['grade_percent']:.1f}% 고정, "
-            f"시작 {first_load:g} {meta['load_unit']}"
-        )
+        if meta["load_type"] == "Speed":
+            protocol_text = (
+                f"프로토콜(경사 {meta['grade_percent']:.1f}% 고정, "
+                f"시작 {first_load:g} {meta['load_unit']}"
+            )
+        else:
+            protocol_text = (
+                f"프로토콜(시작 {first_load:g} {meta['load_unit']}"
+            )
         if increment > 0:
             protocol_text += (
                 f", {meta['stage_duration_min']:g}분마다 "
