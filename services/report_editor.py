@@ -36,29 +36,34 @@ _EDITOR_CSS = """
   font-family: "Noto Sans CJK KR", "Noto Sans KR", "Malgun Gothic", sans-serif;
 }
 .ngc-editor-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: fixed;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 6px;
-  width: min(100%, 980px);
-  margin: 0 auto 8px auto;
-  padding: 8px 10px;
+  width: 118px;
+  margin: 0;
+  padding: 9px;
   border: 1px solid #d8dde3;
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(255,255,255,0.98);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.14);
 }
 .ngc-editor-title {
   font-size: 13px;
   font-weight: 700;
-  margin-right: 4px;
+  margin: 0 0 2px 0;
+  text-align: center;
   white-space: nowrap;
 }
 .ngc-editor-toolbar button {
+  width: 100%;
   min-height: 30px;
-  padding: 4px 9px;
+  padding: 4px 8px;
   border: 1px solid #cfd5dc;
   border-radius: 5px;
   background: #fff;
@@ -73,16 +78,18 @@ _EDITOR_CSS = """
 .ngc-editor-toolbar .ngc-blue { color: #2679D9; }
 .ngc-editor-toolbar .ngc-black { color: #111111; }
 .ngc-divider {
-  width: 1px;
-  height: 22px;
+  width: 100%;
+  height: 1px;
   background: #d8dde3;
-  margin: 0 2px;
+  margin: 1px 0;
 }
-.ngc-spacer { flex: 1; }
+.ngc-spacer { display: none; }
 .ngc-status {
   color: #6b7280;
-  font-size: 11px;
-  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
 }
 .ngc-apply {
   border-color: #1f5f9f !important;
@@ -94,6 +101,37 @@ _EDITOR_CSS = """
 .ngc-apply.ngc-dirty {
   background: #0f4f8f !important;
   box-shadow: 0 0 0 2px rgba(31,95,159,0.15);
+}
+@media (max-width: 1150px) {
+  .ngc-editor-toolbar {
+    position: sticky;
+    top: 8px;
+    right: auto;
+    transform: none;
+    flex-direction: row;
+    align-items: center;
+    width: calc(100% - 24px);
+    max-width: 980px;
+    margin: 0 auto 8px auto;
+  }
+  .ngc-editor-toolbar button {
+    width: auto;
+  }
+  .ngc-editor-title {
+    margin: 0 4px 0 0;
+  }
+  .ngc-divider {
+    width: 1px;
+    height: 22px;
+    margin: 0 2px;
+  }
+  .ngc-spacer {
+    display: block;
+    flex: 1;
+  }
+  .ngc-status {
+    max-width: 210px;
+  }
 }
 .ngc-editor-help {
   width: min(100%, 980px);
@@ -208,14 +246,103 @@ export default function(component) {
     return true;
   };
 
-  const runCommand = (command, value = null) => {
-    if (!restoreSelection()) return;
-    try {
-      document.execCommand("styleWithCSS", false, true);
-    } catch (e) {
-      // Browser may not expose styleWithCSS. The main command still works.
+  const selectedTextSlices = (range, editable) => {
+    const slices = [];
+    const walker = document.createTreeWalker(
+      editable,
+      NodeFilter.SHOW_TEXT
+    );
+
+    let node = walker.nextNode();
+    while (node) {
+      if (range.intersectsNode(node)) {
+        const start = (
+          node === range.startContainer
+            ? range.startOffset
+            : 0
+        );
+        const end = (
+          node === range.endContainer
+            ? range.endOffset
+            : node.textContent.length
+        );
+
+        if (end > start) {
+          slices.push({ node, start, end });
+        }
+      }
+      node = walker.nextNode();
     }
-    document.execCommand(command, false, value);
+    return slices;
+  };
+
+  const applyInlineStyle = (styleName, styleValue) => {
+    if (!restoreSelection()) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const editable = editableForRange(range);
+    if (!editable || range.collapsed) {
+      if (status) status.textContent = "먼저 바꿀 글자를 드래그해서 선택하세요.";
+      return;
+    }
+
+    const slices = selectedTextSlices(range, editable);
+    if (!slices.length) return;
+
+    const wrappers = [];
+
+    for (let i = slices.length - 1; i >= 0; i -= 1) {
+      const { node, start, end } = slices[i];
+
+      if (!node.parentNode) continue;
+
+      if (end < node.textContent.length) {
+        node.splitText(end);
+      }
+      const selectedNode = (
+        start > 0
+          ? node.splitText(start)
+          : node
+      );
+
+      const span = document.createElement("span");
+      span.style[styleName] = styleValue;
+      selectedNode.parentNode.insertBefore(span, selectedNode);
+      span.appendChild(selectedNode);
+      wrappers.unshift(span);
+    }
+
+    if (wrappers.length) {
+      const nextRange = document.createRange();
+      nextRange.setStartBefore(wrappers[0]);
+      nextRange.setEndAfter(wrappers[wrappers.length - 1]);
+      selection.removeAllRanges();
+      selection.addRange(nextRange);
+      savedRange = nextRange.cloneRange();
+    }
+
+    markDirty();
+  };
+
+  const runCommand = (command) => {
+    if (command === "bold") {
+      applyInlineStyle("fontWeight", "700");
+      return;
+    }
+    if (command === "italic") {
+      applyInlineStyle("fontStyle", "italic");
+      return;
+    }
+    if (command === "underline") {
+      applyInlineStyle("textDecoration", "underline");
+      return;
+    }
+
+    if (!restoreSelection()) return;
+    document.execCommand(command, false, null);
     rememberSelection();
     markDirty();
   };
@@ -247,8 +374,8 @@ export default function(component) {
 
   toolbar.querySelectorAll("[data-color]").forEach((button) => {
     button.onmousedown = (event) => event.preventDefault();
-    button.onclick = () => runCommand(
-      "foreColor",
+    button.onclick = () => applyInlineStyle(
+      "color",
       button.getAttribute("data-color")
     );
   });
