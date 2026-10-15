@@ -16,3 +16,7 @@ grant usage, select on sequence public.athletes_id_seq to service_role;
 
 alter table public.athlete_measurements
 add column if not exists stage_duration_min numeric(6,2) not null default 3.0;
+
+
+alter table public.athlete_measurements
+add column if not exists rest_duration_min numeric(6,2) not null default 1.0;
