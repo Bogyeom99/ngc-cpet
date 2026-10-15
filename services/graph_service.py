@@ -114,7 +114,7 @@ def make_hr_vo2_graph(
     ax.axvspan(segments[-1].right, segments[-1].right + RIGHT_PAD_SEC, color="#B8B8B8", alpha=0.18, zorder=0)
 
     for seg in segments:
-        if seg.is_rest:
+        if seg.is_rest or getattr(seg, "is_recovery", False):
             ax.axvspan(seg.left, seg.right, color="#B8B8B8", alpha=0.20, zorder=0)
         ax.axvline(seg.left, color="#BFBFBF", ls="--", lw=0.8, zorder=1)
 
@@ -135,7 +135,7 @@ def make_hr_vo2_graph(
             zorder=5,
         )
 
-    exercise_segments = [seg for seg in segments if not seg.is_rest]
+    exercise_segments = [seg for seg in segments if seg.load is not None]
 
     for seg in exercise_segments:
         group = df.loc[seg.indices]
@@ -376,7 +376,7 @@ def _lactate_x_for_stage(segments: list[Segment], stage_label: str, load_value: 
     if label.lower() == "rest":
         return -LEFT_PAD_SEC / 2
 
-    exercise = [seg for seg in segments if not seg.is_rest and seg.load is not None]
+    exercise = [seg for seg in segments if seg.load is not None]
     if not exercise:
         return None
 
@@ -442,7 +442,7 @@ def make_hr_vo2_lactate_graph(
     ax.axvspan(segments[-1].right, segments[-1].right + RIGHT_PAD_SEC, color="#B8B8B8", alpha=0.18, zorder=0)
 
     for seg in segments:
-        if seg.is_rest:
+        if seg.is_rest or getattr(seg, "is_recovery", False):
             ax.axvspan(seg.left, seg.right, color="#B8B8B8", alpha=0.20, zorder=0)
         ax.axvline(seg.left, color="#BFBFBF", ls="--", lw=0.8, zorder=1)
 
@@ -463,7 +463,7 @@ def make_hr_vo2_lactate_graph(
             zorder=5,
         )
 
-    exercise_segments = [seg for seg in segments if not seg.is_rest]
+    exercise_segments = [seg for seg in segments if seg.load is not None]
 
     for seg in exercise_segments:
         group = df.loc[seg.indices]
