@@ -147,7 +147,7 @@ def make_hr_vo2_graph(
         ax.text(
             seg.center,
             hr_ymax - 2.5,
-            seg.label,
+            ("All-Out" if getattr(seg, "is_allout", False) else seg.label),
             ha="center",
             va="top",
             fontsize=8.5,
@@ -523,7 +523,7 @@ def make_hr_vo2_lactate_graph(
         ax.text(
             seg.center,
             hr_ymax - 2.5,
-            seg.label,
+            ("All-Out" if getattr(seg, "is_allout", False) else seg.label),
             ha="center",
             va="top",
             fontsize=8.5,
