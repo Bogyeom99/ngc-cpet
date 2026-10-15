@@ -148,7 +148,14 @@ def build_report_html(
         f"<th>{html.escape(_lactate_header_label(p['label']))}</th>"
         for p in lactates
     )
-    lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in lactates)
+    lactate_values = "".join(
+        f"<td>{float(p['lactate']):.2f}</td>"
+        for p in lactates
+    )
+    lactate_colgroup = "".join(
+        "<col>"
+        for _ in lactates
+    )
 
     logo_src = _logo_data()
     logo_html = f"<img class='page-logo' src='{logo_src}'>" if logo_src else ""
@@ -418,11 +425,15 @@ body {{
   table-layout: fixed;
   border-collapse: collapse;
 }}
+.lactate-table col {{
+  width: auto;
+}}
 .lactate-table th,
 .lactate-table td {{
   height: 5.2mm;
-  font-size: 9pt;
-  padding: 0.25mm;
+  max-width: 0;
+  font-size: 8.5pt;
+  padding: 0.20mm;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -611,6 +622,7 @@ body {{
   </div>
 
   <table class="data-table lactate-table">
+    <colgroup>{lactate_colgroup}</colgroup>
     <tr>{lactate_headers}</tr>
     <tr>{lactate_values}</tr>
   </table>
