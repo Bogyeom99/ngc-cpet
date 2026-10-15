@@ -49,6 +49,168 @@ def _finite_max(series: pd.Series, fallback: float) -> float:
     return float(values.max())
 
 
+def _label_rows(
+    centers: list[float],
+    labels: list[str],
+    x_min: float,
+    x_max: float,
+    *,
+    rows: int = 3,
+    gap: float = 0.006,
+) -> list[int]:
+    if not centers:
+        return []
+
+    span = max(float(x_max) - float(x_min), 1.0)
+    last_right = [-1.0] * max(rows, 1)
+    assigned: list[int] = []
+
+    for center, label in zip(centers, labels):
+        normalized = (float(center) - float(x_min)) / span
+        half_width = min(
+            0.060,
+            max(0.012, len(str(label)) * 0.0042),
+        )
+        left = normalized - half_width
+        right = normalized + half_width
+
+        row = next(
+            (
+                index
+                for index, occupied_right in enumerate(last_right)
+                if left > occupied_right + gap
+            ),
+            None,
+        )
+        if row is None:
+            row = min(
+                range(len(last_right)),
+                key=lambda index: last_right[index],
+            )
+
+        last_right[row] = max(last_right[row], right)
+        assigned.append(row)
+
+    return assigned
+
+
+def _draw_segment_labels(
+    ax,
+    segments: list[Segment],
+    x_min: float,
+    x_max: float,
+) -> None:
+    labels = [
+        "All-Out"
+        if getattr(seg, "is_allout", False)
+        else str(seg.label)
+        for seg in segments
+    ]
+    rows = _label_rows(
+        [seg.center for seg in segments],
+        labels,
+        x_min,
+        x_max,
+        rows=3,
+    )
+
+    for seg, label, row in zip(segments, labels, rows):
+        ax.annotate(
+            label,
+            xy=(seg.center, 1.0),
+            xycoords=("data", "axes fraction"),
+            xytext=(0, -7 - row * 10),
+            textcoords="offset points",
+            ha="center",
+            va="top",
+            fontsize=8.2 if len(label) <= 9 else 7.6,
+            color="black",
+            zorder=5,
+            annotation_clip=False,
+        )
+
+
+def _draw_time_tick_labels(
+    ax,
+    ticks: list[float],
+    x_min: float,
+    x_max: float,
+) -> None:
+    labels = ["" if tick < 0 else fmt_time(tick) for tick in ticks]
+    positive = [
+        (tick, label)
+        for tick, label in zip(ticks, labels)
+        if label
+    ]
+    rows = _label_rows(
+        [tick for tick, _ in positive],
+        [label for _, label in positive],
+        x_min,
+        x_max,
+        rows=3,
+        gap=0.004,
+    )
+
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([""] * len(ticks))
+
+    for (tick, label), row in zip(positive, rows):
+        ax.annotate(
+            label,
+            xy=(tick, 0.0),
+            xycoords=("data", "axes fraction"),
+            xytext=(0, -8 - row * 9),
+            textcoords="offset points",
+            ha="center",
+            va="top",
+            fontsize=7,
+            color="black",
+            annotation_clip=False,
+        )
+
+
+def _lactate_label_offsets(
+    xs: list[float],
+    ys: list[float],
+    x_min: float,
+    x_max: float,
+) -> list[tuple[int, int]]:
+    if not xs:
+        return []
+
+    span = max(float(x_max) - float(x_min), 1.0)
+    candidates = [
+        (0, 7),
+        (-12, 17),
+        (12, 17),
+        (-16, 7),
+        (16, 7),
+        (0, 27),
+    ]
+    placed: list[tuple[float, float]] = []
+    offsets: list[tuple[int, int]] = []
+
+    for x, y in zip(xs, ys):
+        normalized_x = (float(x) - float(x_min)) / span
+        normalized_y = float(y) / 15.0
+        close_count = sum(
+            1
+            for prev_x, prev_y in placed[-3:]
+            if (
+                abs(normalized_x - prev_x) < 0.038
+                and abs(normalized_y - prev_y) < 0.10
+            )
+        )
+        offsets.append(
+            candidates[
+                min(close_count, len(candidates) - 1)
+            ]
+        )
+        placed.append((normalized_x, normalized_y))
+
+    return offsets
+
+
 def threshold_x(segments: list[Segment], load_value: float) -> float:
     stages = sorted(
         [
