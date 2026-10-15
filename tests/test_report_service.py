@@ -150,3 +150,33 @@ def test_lactate_table_stays_within_page_width():
     assert "table-layout: fixed;" in html
     assert "width: 100%;" in html
     assert "white-space: nowrap;" in html
+
+
+
+def test_report_can_hide_athlete_and_body_sections():
+    data = _report_data()
+    data["show_athlete_info"] = False
+    data["show_body_info"] = False
+
+    html = build_report_html(
+        data,
+        b"graph",
+        None,
+        None,
+    )
+
+    assert '<span class="title-chip">선수 정보</span>' not in html
+    assert '<span class="title-chip">선수 체격 및 신체조성</span>' not in html
+    assert '<span class="title-chip">운동 부하 검사 - KISS Protocol</span>' in html
+
+
+def test_report_info_sections_default_to_visible():
+    html = build_report_html(
+        _report_data(),
+        b"graph",
+        None,
+        None,
+    )
+
+    assert '<span class="title-chip">선수 정보</span>' in html
+    assert '<span class="title-chip">선수 체격 및 신체조성</span>' in html
