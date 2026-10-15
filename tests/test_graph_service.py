@@ -4,6 +4,7 @@ from services.excel_parser import Segment
 from services.graph_service import (
     LEFT_PAD_SEC,
     _display_segment_label,
+    _fmt_time_minute,
     _label_rows,
     _lactate_label_offsets,
     _lactate_x_for_stage,
@@ -159,3 +160,11 @@ def test_close_lactate_values_receive_different_offsets():
 
     assert offsets[0] != offsets[1]
     assert offsets[2] == (0, 7)
+
+
+
+def test_time_ticks_use_whole_minutes_on_one_row():
+    assert _fmt_time_minute(0) == "0분"
+    assert _fmt_time_minute(306) == "5분"
+    assert _fmt_time_minute(360) == "6분"
+    assert _fmt_time_minute(668) == "11분"
