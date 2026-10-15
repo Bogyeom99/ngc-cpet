@@ -1125,44 +1125,50 @@ with tab4:
                 if meta["load_type"] == "Speed"
                 else "파워"
             )
-            load_text = (
+            exact_load_text = f"{item['load']:.2f}"
+            approx_load_text = (
                 f"{round_half_up(item['load'])}"
                 if meta["load_type"] == "Speed"
-                else f"{item['load']:.2f}"
+                else exact_load_text
+            )
+            recommendation_load_text = (
+                f"약 {approx_load_text}"
+                if meta["load_type"] == "Speed"
+                else exact_load_text
             )
 
             if name == "LT1":
                 return (
                     f"혈중 젖산염과 운동 부하를 통해 산출된 "
                     f"LT1(제1젖산역치; 유산소 대사) 지점은 "
-                    f"{load_text}{meta['load_unit']}로 나타났습니다. "
+                    f"{exact_load_text}{meta['load_unit']}로 나타났습니다. "
                     f"이는 심박수 기준 {item['hr']}bpm"
                     f"({zone} 구간, %HRmax 약 {item['pct_hrmax']:.0f}%)에 "
                     f"해당하는 강도입니다. 즉, 경사도 "
                     f"{meta['grade_percent']:.1f}%, {load_word} 약 "
-                    f"{load_text}{meta['load_unit']} 이하 구간까지는 "
+                    f"{approx_load_text}{meta['load_unit']} 이하 구간까지는 "
                     "젖산의 생성과 제거가 균형을 이루는 안정적 유산소 대사 "
                     "구간으로 해석할 수 있으며, 이 지점을 초과할 경우 젖산 "
                     "축적이 본격화되는 것으로 판단됩니다. 따라서 유산소 능력 "
                     f"향상을 위해 경사도 {meta['grade_percent']:.1f}%에서 "
-                    f"훈련 시 {load_text}{meta['load_unit']} 이하로 "
+                    f"훈련 시 {recommendation_load_text}{meta['load_unit']} 이하로 "
                     "진행이 적합할 것으로 판단됩니다."
                 )
 
             return (
                 f"혈중 젖산염과 운동 부하를 통해 산출된 "
                 f"LT2(제2젖산역치; 무산소 대사) 지점은 "
-                f"{load_text}{meta['load_unit']}로 나타났습니다. "
+                f"{exact_load_text}{meta['load_unit']}로 나타났습니다. "
                 f"이는 심박수 기준 {item['hr']}bpm"
                 f"({zone} 구간, %HRmax 약 {item['pct_hrmax']:.0f}%)에 "
                 f"해당하는 강도입니다. 즉, 경사도 "
                 f"{meta['grade_percent']:.1f}%, {load_word} 약 "
-                f"{load_text}{meta['load_unit']} 구간부터 젖산의 "
+                f"{approx_load_text}{meta['load_unit']} 구간부터 젖산의 "
                 "제거보다 생성이 빠르게 증가하는 고강도 구간으로 해석할 수 "
                 "있으며, 이 지점부터 젖산 내성 훈련을 위한 구간으로 "
                 f"판단됩니다. 따라서 젖산 내성 훈련을 위해 경사도 "
                 f"{meta['grade_percent']:.1f}%에서 훈련 시 "
-                f"{load_text}{meta['load_unit']} 이상의 진행이 "
+                f"{recommendation_load_text}{meta['load_unit']} 이상의 진행이 "
                 "적합할 것으로 판단됩니다."
             )
 
