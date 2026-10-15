@@ -142,36 +142,37 @@ def _draw_segment_labels(
         )
 
 
+def _fmt_time_minute(sec: float) -> str:
+    minute = round_half_up(float(sec) / 60.0)
+    return f"{minute}분"
+
+
 def _draw_time_tick_labels(
     ax,
     ticks: list[float],
     x_min: float,
     x_max: float,
 ) -> None:
-    labels = ["" if tick < 0 else fmt_time(tick) for tick in ticks]
-    positive = [
-        (tick, label)
-        for tick, label in zip(ticks, labels)
-        if label
+    del x_min, x_max
+
+    labels = [
+        ""
+        if tick < 0
+        else _fmt_time_minute(tick)
+        for tick in ticks
     ]
-    rows = _label_rows(
-        [tick for tick, _ in positive],
-        [label for _, label in positive],
-        x_min,
-        x_max,
-        rows=3,
-        gap=0.004,
-    )
 
     ax.set_xticks(ticks)
     ax.set_xticklabels([""] * len(ticks))
 
-    for (tick, label), row in zip(positive, rows):
+    for tick, label in zip(ticks, labels):
+        if not label:
+            continue
         ax.annotate(
             label,
             xy=(tick, 0.0),
             xycoords=("data", "axes fraction"),
-            xytext=(0, -8 - row * 9),
+            xytext=(0, -8),
             textcoords="offset points",
             ha="center",
             va="top",
@@ -442,7 +443,7 @@ def make_hr_vo2_graph(
         x_min,
         x_max,
     )
-    ax.set_xlabel("Time (mm:ss)", fontsize=12, labelpad=24)
+    ax.set_xlabel("Time (분)", fontsize=12, labelpad=14)
 
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
     ax.grid(False, axis="x")
@@ -861,7 +862,7 @@ def make_hr_vo2_lactate_graph(
         x_min,
         x_max,
     )
-    ax.set_xlabel("Time (mm:ss)", fontsize=12, labelpad=24)
+    ax.set_xlabel("Time (분)", fontsize=12, labelpad=14)
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
     ax.grid(False, axis="x")
 
