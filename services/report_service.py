@@ -77,7 +77,6 @@ def build_report_html(
     body_height_mm = 80.0
     stage_row_height_mm = body_height_mm / stage_count
     zone_row_height_mm = body_height_mm / 5.0
-    stage_font_pt = max(7.5, min(9.4, 9.5 - max(stage_count - 8, 0) * 0.22))
 
     zone_colors = {
         "Z1": "#B9E7B6",
@@ -186,7 +185,7 @@ html, body {{ margin: 0; padding: 0; background: #fff; }}
 body {{
   font-family: 'Noto Sans CJK KR', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   color: #111;
-  font-size: 9.2pt;
+  font-size: 10pt;
 }}
 .page {{
   width: 210mm;
@@ -212,7 +211,7 @@ body {{
 }}
 .main-title {{
   color: #123A79;
-  font-size: 20.5pt;
+  font-size: 20pt;
   font-weight: 800;
   text-align: center;
   line-height: 1.0;
@@ -227,12 +226,12 @@ body {{
   margin-bottom: 1.0mm;
 }}
 .section-title {{
-  font-size: 11.7pt;
+  font-size: 11pt;
   font-weight: 800;
   line-height: 1;
 }}
 .section-right {{
-  font-size: 9.4pt;
+  font-size: 9pt;
   line-height: 1;
 }}
 .data-table {{
@@ -264,13 +263,13 @@ body {{
   font-weight: 700;
 }}
 .measure-table {{
-  font-size: 8.8pt;
+  font-size: 10pt;
 }}
 .measure-table td {{
   height: 7.2mm;
 }}
 .hr-title {{
-  font-size: 12pt;
+  font-size: 11pt;
   font-weight: 800;
   margin: 2.6mm 0 1.2mm 0;
   line-height: 1;
@@ -302,21 +301,21 @@ body {{
 }}
 .hr-grid .group-head {{
   height: 6mm;
-  font-size: 9.3pt;
+  font-size: 10pt;
 }}
 .hr-grid .col-head {{
   height: 6mm;
-  font-size: 8.8pt;
+  font-size: 10pt;
 }}
 .stage-table {{
-  font-size: {stage_font_pt:.2f}pt;
+  font-size: 10pt;
 }}
 .stage-table tbody tr {{
   height: {stage_row_height_mm:.3f}mm;
 }}
 .zone-table {{
   border-left: 0;
-  font-size: 8.8pt;
+  font-size: 10pt;
 }}
 .zone-table tbody tr {{
   height: {zone_row_height_mm:.3f}mm;
@@ -348,7 +347,7 @@ body {{
 .page1-comment {{
   height: 24mm;
   padding-top: 1.0mm;
-  font-size: 9.5pt;
+  font-size: 10pt;
   line-height: 1.42;
   overflow: hidden;
 }}
@@ -359,7 +358,7 @@ body {{
   align-items: flex-end;
 }}
 .page2-heading {{
-  font-size: 12pt;
+  font-size: 11pt;
   font-weight: 800;
   line-height: 1;
 }}
@@ -372,7 +371,7 @@ body {{
 .lactate-table th,
 .lactate-table td {{
   height: 5.2mm;
-  font-size: 8.5pt;
+  font-size: 10pt;
   padding: 0.3mm;
 }}
 .lactate-graph-box {{
@@ -395,7 +394,7 @@ body {{
   border-top: 0.55px solid #555;
   border-bottom: 0.55px solid #555;
   padding: 2.0mm 1.2mm;
-  font-size: 9.2pt;
+  font-size: 10pt;
   line-height: 1.42;
 }}
 .total-title {{
@@ -403,7 +402,7 @@ body {{
   margin-top: 4.5mm;
   display: flex;
   align-items: center;
-  font-size: 11.8pt;
+  font-size: 11pt;
   font-weight: 800;
   border-bottom: 0.55px solid #555;
 }}
@@ -431,13 +430,13 @@ body {{
   padding-top: 0;
 }}
 .lt-title {{
-  font-size: 10.3pt;
+  font-size: 11pt;
   font-weight: 800;
   line-height: 1.15;
   margin-bottom: 0.8mm;
 }}
 .editable-text {{
-  font-size: 9.25pt;
+  font-size: 10pt;
   line-height: 1.45;
 }}
 .page1-comment p,
