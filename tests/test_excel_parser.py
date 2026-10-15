@@ -190,3 +190,45 @@ def test_download_template_uses_stage_column():
         "Heart Rate",
         "Stage",
     ]
+
+
+def test_rest_is_normalized_to_configured_duration():
+    data = pd.DataFrame(
+        {
+            "Time": list(range(24)),
+            "VO2/kg": np.linspace(10, 30, 24),
+            "Heart Rate": np.linspace(90, 150, 24),
+            "Stage": [4] * 8 + ["R"] * 5 + [5.5] * 8 + [7] * 3,
+        }
+    )
+
+    _, segments, _ = parse_excel(
+        _excel_bytes(data),
+        stage_duration_min=3,
+        rest_duration_min=1.5,
+    )
+
+    rest = next(seg for seg in segments if seg.is_rest)
+    assert rest.duration == 90.0
+    assert segments[0].duration == 180.0
+    assert segments[-1].is_allout
+
+
+def test_rest_duration_can_be_shorter_than_recorded_rest():
+    data = pd.DataFrame(
+        {
+            "Time": list(range(18)),
+            "VO2/kg": np.linspace(10, 25, 18),
+            "Heart Rate": np.linspace(90, 145, 18),
+            "Stage": [4] * 6 + ["Rest"] * 6 + [5.5] * 6,
+        }
+    )
+
+    _, segments, _ = parse_excel(
+        _excel_bytes(data),
+        stage_duration_min=3,
+        rest_duration_min=0.5,
+    )
+
+    rest = next(seg for seg in segments if seg.is_rest)
+    assert rest.duration == 30.0
