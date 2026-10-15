@@ -950,16 +950,47 @@ with tab4:
         )
 
     else:
-        option_col1, option_col2 = st.columns(2)
-        show_athlete_info = option_col1.checkbox(
+        show_header_group = st.checkbox(
+            "제목 및 기본정보 모두 표시",
+            value=True,
+            key="report_show_header_group",
+            help=(
+                "체크를 해제하면 제목, 선수 정보, "
+                "선수 체격 및 신체조성을 한 번에 숨깁니다."
+            ),
+        )
+
+        option_col1, option_col2, option_col3 = st.columns(3)
+        show_report_title_individual = option_col1.checkbox(
+            "결과지 제목 표시",
+            value=True,
+            key="report_show_title",
+            disabled=not show_header_group,
+        )
+        show_athlete_info_individual = option_col2.checkbox(
             "결과지에 선수 정보 표시",
             value=True,
             key="report_show_athlete_info",
+            disabled=not show_header_group,
         )
-        show_body_info = option_col2.checkbox(
+        show_body_info_individual = option_col3.checkbox(
             "결과지에 선수 체격 및 신체조성 표시",
             value=True,
             key="report_show_body_info",
+            disabled=not show_header_group,
+        )
+
+        show_report_title = (
+            show_header_group
+            and show_report_title_individual
+        )
+        show_athlete_info = (
+            show_header_group
+            and show_athlete_info_individual
+        )
+        show_body_info = (
+            show_header_group
+            and show_body_info_individual
         )
 
         summary = parsed["summary"]
@@ -1213,7 +1244,8 @@ with tab4:
         )
 
         editor_key = (
-            f"report_editor_v3_{token}_"
+            f"report_editor_v4_{token}_"
+            f"title{int(show_report_title)}_"
             f"athlete{int(show_athlete_info)}_"
             f"body{int(show_body_info)}"
         )
@@ -1279,6 +1311,7 @@ with tab4:
             "lactates": analysis["chart_points"],
             "lt1": lt1_item,
             "lt2": lt2_item,
+            "show_report_title": show_report_title,
             "show_athlete_info": show_athlete_info,
             "show_body_info": show_body_info,
             "page1_comment": page1_comment,
