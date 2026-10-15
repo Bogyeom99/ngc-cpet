@@ -3,6 +3,8 @@ import pandas as pd
 from services.excel_parser import Segment
 from services.graph_service import (
     LEFT_PAD_SEC,
+    _label_rows,
+    _lactate_label_offsets,
     _lactate_x_for_stage,
     make_hr_vo2_graph,
     make_hr_vo2_lactate_graph,
@@ -97,3 +99,32 @@ def test_resting_lactate_stays_before_zero_even_with_stage_rest():
     )
 
     assert x == -LEFT_PAD_SEC / 2
+
+
+
+def test_dense_labels_are_staggered_across_rows():
+    centers = [2800, 2825, 2850, 2880]
+    labels = ["18", "R", "All-Out", "Recovery 5min"]
+
+    rows = _label_rows(
+        centers,
+        labels,
+        x_min=-120,
+        x_max=3200,
+        rows=3,
+    )
+
+    assert len(rows) == 4
+    assert len(set(rows)) > 1
+
+
+def test_close_lactate_values_receive_different_offsets():
+    offsets = _lactate_label_offsets(
+        [2800, 2825, 3100],
+        [10.09, 10.15, 9.34],
+        x_min=-120,
+        x_max=3200,
+    )
+
+    assert offsets[0] != offsets[1]
+    assert offsets[2] == (0, 7)
