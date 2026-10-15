@@ -132,7 +132,7 @@ def build_input_template() -> bytes:
         ),
         (
             "주의",
-            "마지막 숫자 Stage를 제외한 일반 운동 Stage는 웹에서 설정한 시간으로 자동 정규화됩니다. 마지막 숫자 Stage는 All-Out으로 자동 인식해 실제 기록시간을 사용하며, Rest와 Recovery도 실제 기록시간을 사용합니다.",
+            "마지막 숫자 Stage를 제외한 일반 운동 Stage는 웹에서 설정한 Stage 시간으로 자동 정규화됩니다. R 또는 Rest 구간은 웹에서 설정한 Rest 시간으로 정규화됩니다. 마지막 숫자 Stage는 All-Out으로 자동 인식해 실제 기록시간을 사용하며 Recovery도 실제 기록시간을 사용합니다.",
         ),
     ]
 
