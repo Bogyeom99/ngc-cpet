@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import re
 from io import BytesIO
 
 import bleach
@@ -15,6 +16,36 @@ LOGO_PATH = ROOT / "assets" / "center_logo.png"
 
 def _img_data(png_bytes: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(png_bytes).decode("ascii")
+
+
+def _lactate_header_label(label: object) -> str:
+    text = str(label).strip()
+    normalized = text.upper().replace("_", " ")
+
+    if normalized in {
+        "AO",
+        "ALL-OUT",
+        "ALL OUT",
+        "ALLOUT",
+    }:
+        return "AO"
+
+    if normalized.startswith("REC"):
+        match = re.search(
+            r"(\d+(?:\.\d+)?)",
+            text,
+        )
+        if match:
+            value = float(match.group(1))
+            value_text = (
+                f"{int(value)}"
+                if value.is_integer()
+                else f"{value:g}"
+            )
+            return f"Rec {value_text}"
+        return "Rec"
+
+    return text
 
 
 def _logo_data() -> str:
@@ -113,7 +144,10 @@ def build_report_html(
         for i, z in enumerate(zones, start=1)
     )
 
-    lactate_headers = "".join(f"<th>{html.escape('All-Out' if str(p['label']) == 'AO' else str(p['label']))}</th>" for p in lactates)
+    lactate_headers = "".join(
+        f"<th>{html.escape(_lactate_header_label(p['label']))}</th>"
+        for p in lactates
+    )
     lactate_values = "".join(f"<td>{float(p['lactate']):.2f}</td>" for p in lactates)
 
     logo_src = _logo_data()
@@ -379,13 +413,19 @@ body {{
   margin-left: auto;
 }}
 .lactate-table {{
+  width: 100%;
   margin-top: 1.5mm;
+  table-layout: fixed;
+  border-collapse: collapse;
 }}
 .lactate-table th,
 .lactate-table td {{
   height: 5.2mm;
-  font-size: 10pt;
-  padding: 0.3mm;
+  font-size: 9pt;
+  padding: 0.25mm;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
 }}
 .lactate-graph-box {{
   height: 52mm;
