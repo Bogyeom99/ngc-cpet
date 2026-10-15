@@ -226,7 +226,7 @@ body {{
   margin-bottom: 1.0mm;
 }}
 .section-title {{
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 800;
   line-height: 1;
 }}
@@ -262,14 +262,23 @@ body {{
   background: #F2F2F2;
   font-weight: 700;
 }}
+.info-table .info-label {{
+  font-size: 9pt;
+}}
 .measure-table {{
   font-size: 10pt;
 }}
 .measure-table td {{
   height: 7.2mm;
+  padding-left: 0.45mm;
+  padding-right: 0.45mm;
+}}
+.measure-table .info-label {{
+  white-space: nowrap;
+  font-size: 10pt;
 }}
 .hr-title {{
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 800;
   margin: 2.6mm 0 1.2mm 0;
   line-height: 1;
@@ -358,7 +367,7 @@ body {{
   align-items: flex-end;
 }}
 .page2-heading {{
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 800;
   line-height: 1;
 }}
@@ -402,7 +411,7 @@ body {{
   margin-top: 4.5mm;
   display: flex;
   align-items: center;
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 800;
   border-bottom: 0.55px solid #555;
 }}
@@ -430,7 +439,7 @@ body {{
   padding-top: 0;
 }}
 .lt-title {{
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 800;
   line-height: 1.15;
   margin-bottom: 0.8mm;
@@ -501,6 +510,12 @@ body {{
     <div class="section-right">{grade_note}</div>
   </div>
   <table class="data-table measure-table">
+    <colgroup>
+      <col style="width:36%">
+      <col style="width:14%">
+      <col style="width:32%">
+      <col style="width:18%">
+    </colgroup>
     <tr>
       <td class="info-label">최대 산소 섭취량(ml/kg/min)</td><td>{html.escape(str(data['vo2max']))}</td>
       <td class="info-label">최대 심박수(beats/min)</td><td>{html.escape(str(data['hrmax']))}</td>
