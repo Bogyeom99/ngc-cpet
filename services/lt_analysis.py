@@ -34,6 +34,8 @@ class LTResult:
 
 
 def _fit_line(x: np.ndarray, y: np.ndarray) -> tuple[float, float]:
+    if len(x) < 2 or len(np.unique(x)) < 2:
+        raise ValueError("회귀선 계산에 서로 다른 부하값이 최소 2개 필요합니다.")
     slope, intercept = np.polyfit(x, y, 1)
     return float(slope), float(intercept)
 
@@ -52,12 +54,21 @@ def find_best_split(points: Iterable[LactatePoint], min_points_per_side: int = 2
         left_x, right_x = x[:split], x[split:]
         left_y, right_y = y[:split], y[split:]
 
-        a, b = _fit_line(left_x, left_y)
-        c, d = _fit_line(right_x, right_y)
+        try:
+            a, b = _fit_line(left_x, left_y)
+            c, d = _fit_line(right_x, right_y)
+        except ValueError:
+            continue
 
         left_pred = a * left_x + b
         right_pred = c * right_x + d
-        sse = float(np.sum((left_y - left_pred) ** 2) + np.sum((right_y - right_pred) ** 2))
+        sse = float(
+            np.sum((left_y - left_pred) ** 2)
+            + np.sum((right_y - right_pred) ** 2)
+        )
+
+        if not np.isfinite(sse):
+            continue
 
         fit = SplitFit(
             split_index=split,
