@@ -305,17 +305,15 @@ def make_hr_vo2_graph(
     ax.plot(df["_x"], df["Heart Rate"], color=COLOR_HR, lw=1.6, zorder=3)
     ax2.plot(df["_x"], df["VO2/kg"], color=COLOR_VO2, lw=1.15, zorder=3)
 
-    for seg in segments:
-        ax.text(
-            seg.center,
-            hr_ymax - 2.5,
-            ("All-Out" if getattr(seg, "is_allout", False) else seg.label),
-            ha="center",
-            va="top",
-            fontsize=8.5,
-            color="black",
-            zorder=5,
-        )
+    total_end = segments[-1].right
+    x_min = -LEFT_PAD_SEC
+    x_max = total_end + RIGHT_PAD_SEC
+    _draw_segment_labels(
+        ax,
+        segments,
+        x_min,
+        x_max,
+    )
 
     exercise_segments = [
         seg
@@ -679,17 +677,15 @@ def make_hr_vo2_lactate_graph(
     ax.plot(df["_x"], df["Heart Rate"], color=COLOR_HR, lw=1.6, zorder=3)
     ax2.plot(df["_x"], df["VO2/kg"], color=COLOR_VO2, lw=1.15, zorder=3)
 
-    for seg in segments:
-        ax.text(
-            seg.center,
-            hr_ymax - 2.5,
-            ("All-Out" if getattr(seg, "is_allout", False) else seg.label),
-            ha="center",
-            va="top",
-            fontsize=8.5,
-            color="black",
-            zorder=5,
-        )
+    total_end = segments[-1].right
+    x_min = -LEFT_PAD_SEC
+    x_max = total_end + RIGHT_PAD_SEC
+    _draw_segment_labels(
+        ax,
+        segments,
+        x_min,
+        x_max,
+    )
 
     exercise_segments = [
         seg
