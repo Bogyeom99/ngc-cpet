@@ -95,3 +95,24 @@ def test_report_uses_simplified_typography_scale():
     assert ".stage-table {" in html
     assert ".editable-text {" in html
     assert html.count("font-size: 10pt;") >= 7
+
+
+def test_report_heading_and_measure_table_typography():
+    html = build_report_html(
+        _report_data(),
+        b"graph",
+        None,
+        None,
+    )
+
+    assert ".section-title {" in html
+    assert ".hr-title {" in html
+    assert ".page2-heading {" in html
+    assert ".lt-title {" in html
+    assert html.count("font-size: 12pt;") >= 5
+    assert ".info-table .info-label {" in html
+    assert "font-size: 9pt;" in html
+    assert ".measure-table .info-label {" in html
+    assert "white-space: nowrap;" in html
+    assert '<col style="width:36%">' in html
+    assert '<col style="width:32%">' in html
