@@ -21,6 +21,7 @@ from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph,
 from services.lt_analysis import LactatePoint, estimate_lt
 from services.report_editor import render_report_editor
 from services.report_service import build_report_html, html_to_pdf
+from services.report_state import build_report_state_token
 
 
 round_half_up = excel_parser.round_half_up
@@ -1176,9 +1177,12 @@ with tab4:
                 "적합할 것으로 판단됩니다."
             )
 
-        token = (
-            f"{meta['athlete']['name']}_"
-            f"{meta['test_date'].isoformat()}"
+        token = build_report_state_token(
+            meta,
+            parsed,
+            analysis,
+            lt1_item,
+            lt2_item,
         )
         page1_key = f"page1_comment_{token}"
         lactate_key = f"lactate_comment_{token}"
