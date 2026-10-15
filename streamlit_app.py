@@ -1200,7 +1200,7 @@ with tab4:
             default_lt_comment(lt2_item, "LT2"),
         )
 
-        editor_key = f"report_editor_{token}"
+        editor_key = f"report_editor_v2_{token}"
         editor_fields = {
             "page1_comment": page1_key,
             "lactate_comment": lactate_key,
