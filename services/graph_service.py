@@ -41,9 +41,25 @@ def fmt_time(sec: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
 
 
+def _finite_max(series: pd.Series, fallback: float) -> float:
+    values = pd.to_numeric(series, errors="coerce")
+    values = values[np.isfinite(values)]
+    if values.empty:
+        return float(fallback)
+    return float(values.max())
+
+
 def threshold_x(segments: list[Segment], load_value: float) -> float:
     stages = sorted(
-        [seg for seg in segments if not seg.is_rest and seg.load is not None],
+        [
+            seg
+            for seg in segments
+            if (
+                not seg.is_rest
+                and not getattr(seg, "is_recovery", False)
+                and seg.load is not None
+            )
+        ],
         key=lambda s: s.load,
     )
 
@@ -54,7 +70,10 @@ def threshold_x(segments: list[Segment], load_value: float) -> float:
 
     for left, right in zip(stages[:-1], stages[1:]):
         if left.load <= load_value <= right.load:
-            ratio = (load_value - left.load) / (right.load - left.load)
+            load_span = right.load - left.load
+            if abs(load_span) < 1e-12:
+                return (left.center + right.center) / 2.0
+            ratio = (load_value - left.load) / load_span
             if ratio < 0.5:
                 return left.center + (left.right - left.center) * (ratio / 0.5)
             return right.left + (right.center - right.left) * ((ratio - 0.5) / 0.5)
@@ -92,12 +111,12 @@ def make_hr_vo2_graph(
     hr_ymin = 50
     hr_ymax = max(
         225,
-        math.ceil(max(hrmax, float(df["Heart Rate"].max(skipna=True))) / 25) * 25,
+        math.ceil(max(float(hrmax), _finite_max(df["Heart Rate"], 0.0)) / 25) * 25,
     )
     vo2_ymin = 0
     vo2_ymax = max(
         100,
-        math.ceil(float(df["VO2/kg"].max(skipna=True)) / 10) * 10,
+        math.ceil(_finite_max(df["VO2/kg"], 0.0) / 10) * 10,
     )
 
     zones = [
@@ -136,11 +155,19 @@ def make_hr_vo2_graph(
             zorder=5,
         )
 
-    exercise_segments = [seg for seg in segments if seg.load is not None]
+    exercise_segments = [
+        seg
+        for seg in segments
+        if (
+            seg.load is not None
+            and not seg.is_rest
+            and not getattr(seg, "is_recovery", False)
+        )
+    ]
 
     for seg in exercise_segments:
         group = df.loc[seg.indices]
-        cap = max(seg.duration * 0.08, 5)
+        cap = min(max(seg.duration * 0.08, 5), max(seg.duration * 0.45, 5))
         hr = group["Heart Rate"].dropna()
         vo2 = group["VO2/kg"].dropna()
 
@@ -207,13 +234,8 @@ def make_hr_vo2_graph(
 
         ax.axvline(x, color=color, lw=2.0, ls="--", zorder=4)
 
-        if lt_label_mode == "analysis" and hr is not None:
-            label = f"{name}\n{round_half_up(hr)} bpm"
-        else:
-            label = name
-
         ax.annotate(
-            label,
+            name,
             xy=(x, 1.0),
             xycoords=("data", "axes fraction"),
             xytext=(0, 7),
@@ -388,7 +410,15 @@ def _lactate_x_for_stage(
             return rest_segments[0].center
         return -LEFT_PAD_SEC / 2
 
-    exercise = [seg for seg in segments if seg.load is not None]
+    exercise = [
+        seg
+        for seg in segments
+        if (
+            seg.load is not None
+            and not seg.is_rest
+            and not getattr(seg, "is_recovery", False)
+        )
+    ]
     if not exercise:
         return None
 
@@ -457,12 +487,12 @@ def make_hr_vo2_lactate_graph(
     hr_ymin = 50
     hr_ymax = max(
         225,
-        math.ceil(max(hrmax, float(df["Heart Rate"].max(skipna=True))) / 25) * 25,
+        math.ceil(max(float(hrmax), _finite_max(df["Heart Rate"], 0.0)) / 25) * 25,
     )
     vo2_ymin = 0
     vo2_ymax = max(
         100,
-        math.ceil(float(df["VO2/kg"].max(skipna=True)) / 10) * 10,
+        math.ceil(_finite_max(df["VO2/kg"], 0.0) / 10) * 10,
     )
 
     zones = [
@@ -501,11 +531,19 @@ def make_hr_vo2_lactate_graph(
             zorder=5,
         )
 
-    exercise_segments = [seg for seg in segments if seg.load is not None]
+    exercise_segments = [
+        seg
+        for seg in segments
+        if (
+            seg.load is not None
+            and not seg.is_rest
+            and not getattr(seg, "is_recovery", False)
+        )
+    ]
 
     for seg in exercise_segments:
         group = df.loc[seg.indices]
-        cap = max(seg.duration * 0.08, 5)
+        cap = min(max(seg.duration * 0.08, 5), max(seg.duration * 0.45, 5))
         hr = group["Heart Rate"].dropna()
         vo2 = group["VO2/kg"].dropna()
 
