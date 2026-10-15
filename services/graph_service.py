@@ -408,8 +408,7 @@ def make_hr_vo2_graph(
             annotation_clip=False,
         )
 
-    total_end = segments[-1].right
-    ax.set_xlim(-LEFT_PAD_SEC, total_end + RIGHT_PAD_SEC)
+    ax.set_xlim(x_min, x_max)
     ax.set_ylim(hr_ymin, hr_ymax)
     ax2.set_ylim(vo2_ymin, vo2_ymax)
 
@@ -419,10 +418,19 @@ def make_hr_vo2_graph(
     ax.tick_params(axis="y", colors=COLOR_HR)
     ax2.tick_params(axis="y", colors=COLOR_VO2)
 
-    ticks = list(dict.fromkeys([-LEFT_PAD_SEC, 0.0] + [seg.right for seg in segments]))
-    ax.set_xticks(ticks)
-    ax.set_xticklabels(["" if t < 0 else fmt_time(t) for t in ticks], fontsize=7)
-    ax.set_xlabel("Time (mm:ss)", fontsize=12)
+    ticks = list(
+        dict.fromkeys(
+            [-LEFT_PAD_SEC, 0.0]
+            + [seg.right for seg in segments]
+        )
+    )
+    _draw_time_tick_labels(
+        ax,
+        ticks,
+        x_min,
+        x_max,
+    )
+    ax.set_xlabel("Time (mm:ss)", fontsize=12, labelpad=24)
 
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
     ax.grid(False, axis="x")
@@ -798,8 +806,7 @@ def make_hr_vo2_lactate_graph(
             annotation_clip=False,
         )
 
-    total_end = segments[-1].right
-    ax.set_xlim(-LEFT_PAD_SEC, total_end + RIGHT_PAD_SEC)
+    ax.set_xlim(x_min, x_max)
     ax.set_ylim(hr_ymin, hr_ymax)
     ax2.set_ylim(vo2_ymin, vo2_ymax)
 
@@ -808,10 +815,19 @@ def make_hr_vo2_lactate_graph(
     ax.tick_params(axis="y", colors=COLOR_HR)
     ax2.tick_params(axis="y", colors=COLOR_VO2)
 
-    ticks = list(dict.fromkeys([-LEFT_PAD_SEC, 0.0] + [seg.right for seg in segments]))
-    ax.set_xticks(ticks)
-    ax.set_xticklabels(["" if t < 0 else fmt_time(t) for t in ticks], fontsize=7)
-    ax.set_xlabel("Time (mm:ss)", fontsize=12)
+    ticks = list(
+        dict.fromkeys(
+            [-LEFT_PAD_SEC, 0.0]
+            + [seg.right for seg in segments]
+        )
+    )
+    _draw_time_tick_labels(
+        ax,
+        ticks,
+        x_min,
+        x_max,
+    )
+    ax.set_xlabel("Time (mm:ss)", fontsize=12, labelpad=24)
     ax.grid(axis="y", ls="--", lw=0.7, color="#D2D2D2")
     ax.grid(False, axis="x")
 
