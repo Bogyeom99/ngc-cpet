@@ -3,6 +3,7 @@ import pandas as pd
 from services.excel_parser import Segment
 from services.graph_service import (
     LEFT_PAD_SEC,
+    _display_segment_label,
     _label_rows,
     _lactate_label_offsets,
     _lactate_x_for_stage,
@@ -116,6 +117,36 @@ def test_dense_labels_are_staggered_across_rows():
 
     assert len(rows) == 4
     assert len(set(rows)) > 1
+
+
+def test_stage_labels_use_short_one_line_names():
+    allout = Segment(
+        "All-Out",
+        [0],
+        0,
+        60,
+        30,
+        60,
+        18.0,
+        False,
+        False,
+        True,
+    )
+    recovery = Segment(
+        "Recovery 5min",
+        [1],
+        60,
+        360,
+        210,
+        300,
+        None,
+        False,
+        True,
+        False,
+    )
+
+    assert _display_segment_label(allout) == "AO"
+    assert _display_segment_label(recovery) == "Rec 5"
 
 
 def test_close_lactate_values_receive_different_offsets():
