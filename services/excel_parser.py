@@ -32,11 +32,18 @@ class Segment:
 
 
 def round_half_up(value: float) -> int:
-    return int(math.floor(float(value) + 0.5))
+    value = float(value)
+    if not np.isfinite(value):
+        raise ValueError("반올림할 값이 유효한 숫자가 아닙니다.")
+    return int(math.floor(value + 0.5))
 
 
 def _normalized_label(label: object) -> str:
-    return str(label).strip().upper().replace("_", " ")
+    return re.sub(
+        r"\s+",
+        " ",
+        str(label).strip().upper().replace("_", " "),
+    )
 
 
 def is_rest(label: object) -> bool:
@@ -45,7 +52,11 @@ def is_rest(label: object) -> bool:
 
 def is_recovery(label: object) -> bool:
     text = _normalized_label(label)
-    return text in RECOVERY_LABELS or text.startswith("RECOVERY ") or text.startswith("REC ")
+    return (
+        text in RECOVERY_LABELS
+        or text.startswith("RECOVERY ")
+        or text.startswith("REC ")
+    )
 
 
 def is_allout(label: object) -> bool:
@@ -60,21 +71,61 @@ def parse_load(label: object) -> float | None:
 
 
 def time_to_seconds(value: object) -> float:
+    """Convert one time-like value to seconds.
+
+    Numeric values are handled by _time_series_to_seconds so that elapsed
+    seconds starting at 0, 1, 2 are not mistaken for Excel day fractions.
+    """
     if pd.isna(value):
         return np.nan
     if isinstance(value, (pd.Timedelta, dt.timedelta)):
         return value.total_seconds()
     if isinstance(value, (dt.datetime, dt.time)):
-        return value.hour * 3600 + value.minute * 60 + value.second + value.microsecond / 1e6
+        return (
+            value.hour * 3600
+            + value.minute * 60
+            + value.second
+            + value.microsecond / 1e6
+        )
     if isinstance(value, (int, float, np.number)):
-        value = float(value)
-        return value * 86400 if 0 <= value < 2 else value
+        return float(value)
+
     td = pd.to_timedelta(str(value), errors="coerce")
     return np.nan if pd.isna(td) else td.total_seconds()
 
 
+def _time_series_to_seconds(series: pd.Series) -> pd.Series:
+    """Convert a Time column while distinguishing seconds from Excel fractions."""
+    numeric = pd.to_numeric(series, errors="coerce")
+
+    if numeric.notna().all():
+        values = numeric.astype(float)
+
+        # Typical elapsed-second data quickly exceeds 2. Treat the whole
+        # column consistently as seconds, including the initial 0/1 rows.
+        if float(values.max()) > 2.0:
+            return values
+
+        # A fully numeric column confined to one day and containing fractions
+        # is most likely an Excel time serial.
+        non_integer = np.abs(values - np.round(values)) > 1e-9
+        if (
+            float(values.min()) >= 0
+            and float(values.max()) <= 1.0
+            and bool(non_integer.any())
+        ):
+            return values * 86400.0
+
+        return values
+
+    return series.map(time_to_seconds)
+
+
 def _stage_column(columns) -> str | None:
-    normalized = {str(col).strip().lower(): col for col in columns}
+    normalized = {
+        str(col).strip().lower(): col
+        for col in columns
+    }
     for name in STAGE_COLUMNS:
         key = name.lower()
         if key in normalized:
@@ -82,7 +133,10 @@ def _stage_column(columns) -> str | None:
     return None
 
 
-def _find_data_sheet(xls: pd.ExcelFile, file_obj: BytesIO) -> str | None:
+def _find_data_sheet(
+    xls: pd.ExcelFile,
+    file_obj: BytesIO,
+) -> str | None:
     for sheet in xls.sheet_names:
         preview = pd.read_excel(
             file_obj,
@@ -91,16 +145,36 @@ def _find_data_sheet(xls: pd.ExcelFile, file_obj: BytesIO) -> str | None:
             nrows=5,
         )
         file_obj.seek(0)
-        if all(col in preview.columns for col in BASE_COLUMNS) and _stage_column(preview.columns):
+        if (
+            all(col in preview.columns for col in BASE_COLUMNS)
+            and _stage_column(preview.columns)
+        ):
             return sheet
     return None
+
+
+def _actual_duration(raw: np.ndarray) -> float:
+    if len(raw) <= 1:
+        return 1.0
+
+    diffs = np.diff(raw.astype(float))
+    positive = diffs[diffs > 0]
+
+    if len(positive) == 0:
+        return 0.0
+
+    # Add one typical sampling interval so 0..299 s at 1 Hz represents
+    # approximately 300 seconds rather than 299.
+    sample_interval = float(np.median(positive))
+    return float(raw[-1] - raw[0] + sample_interval)
 
 
 def parse_excel(
     uploaded_file,
     stage_duration_min: float = 3.0,
+    allout_load: float | None = None,
 ) -> tuple[pd.DataFrame, list[Segment], pd.DataFrame]:
-    if stage_duration_min <= 0:
+    if not np.isfinite(float(stage_duration_min)) or stage_duration_min <= 0:
         raise ValueError("일반 운동 Stage 시간은 0보다 커야 합니다.")
 
     stage_duration_sec = float(stage_duration_min) * 60.0
@@ -109,23 +183,47 @@ def parse_excel(
         if hasattr(uploaded_file, "getvalue")
         else uploaded_file.read()
     )
-    file_obj = BytesIO(raw_bytes)
-    xls = pd.ExcelFile(file_obj, engine="openpyxl")
-    file_obj.seek(0)
+    if not raw_bytes:
+        raise ValueError("Excel 파일이 비어 있습니다.")
 
-    sheet = "Data" if "Data" in xls.sheet_names else _find_data_sheet(xls, file_obj)
+    file_obj = BytesIO(raw_bytes)
+    try:
+        xls = pd.ExcelFile(file_obj, engine="openpyxl")
+    except Exception as exc:
+        raise ValueError(
+            "Excel 파일을 열 수 없습니다. xlsx 또는 xlsm 파일인지 확인하세요."
+        ) from exc
+
+    file_obj.seek(0)
+    sheet = (
+        "Data"
+        if "Data" in xls.sheet_names
+        else _find_data_sheet(xls, file_obj)
+    )
     if sheet is None:
         raise ValueError(
             "Time, VO2/kg, Heart Rate와 Stage 열을 가진 시트를 찾지 못했습니다."
         )
 
     file_obj.seek(0)
-    raw_df = pd.read_excel(file_obj, sheet_name=sheet, engine="openpyxl")
-    missing = [c for c in BASE_COLUMNS if c not in raw_df.columns]
+    raw_df = pd.read_excel(
+        file_obj,
+        sheet_name=sheet,
+        engine="openpyxl",
+    )
+
+    missing = [
+        c
+        for c in BASE_COLUMNS
+        if c not in raw_df.columns
+    ]
     stage_col = _stage_column(raw_df.columns)
 
     if missing:
-        raise ValueError(f"필수 열이 없습니다: {missing}")
+        raise ValueError(
+            "필수 열이 없습니다: "
+            + ", ".join(missing)
+        )
     if stage_col is None:
         raise ValueError("필수 열이 없습니다: Stage")
 
@@ -137,17 +235,29 @@ def parse_excel(
         .reset_index(drop=True)
     )
 
-    df["VO2/kg"] = pd.to_numeric(df["VO2/kg"], errors="coerce")
-    df["Heart Rate"] = pd.to_numeric(df["Heart Rate"], errors="coerce")
-    df["_raw_time"] = df["Time"].map(time_to_seconds)
+    if df.empty:
+        raise ValueError("Data 시트에 측정 데이터가 없습니다.")
+
+    df["VO2/kg"] = pd.to_numeric(
+        df["VO2/kg"],
+        errors="coerce",
+    )
+    df["Heart Rate"] = pd.to_numeric(
+        df["Heart Rate"],
+        errors="coerce",
+    )
+    df["_raw_time"] = _time_series_to_seconds(df["Time"])
 
     if df["_raw_time"].isna().any():
         bad_rows = [
             i + 2
-            for i in df.index[df["_raw_time"].isna()].tolist()[:10]
+            for i in df.index[
+                df["_raw_time"].isna()
+            ].tolist()[:10]
         ]
         raise ValueError(
-            f"Time 값을 읽을 수 없는 Excel 행이 있습니다: {bad_rows}"
+            "Time 값을 읽을 수 없는 Excel 행이 있습니다: "
+            + ", ".join(map(str, bad_rows))
         )
 
     df["_segment_key"] = (
@@ -166,27 +276,38 @@ def parse_excel(
     df["_segment"] = np.cumsum(changes)
     df["_x"] = np.nan
 
-    raw_segments: list[tuple[str, list[int], np.ndarray]] = []
-    for _, group in df.groupby("_segment", sort=False):
+    raw_segments: list[
+        tuple[str, list[int], np.ndarray]
+    ] = []
+
+    for _, group in df.groupby(
+        "_segment",
+        sort=False,
+    ):
         label = group["_segment_key"].iloc[0]
         if label == "__BLANK__":
             continue
+
         idx = group.index.to_list()
-        raw = df.loc[idx, "_raw_time"].to_numpy(dtype=float)
-        raw_segments.append((str(label), idx, raw))
+        raw = df.loc[
+            idx,
+            "_raw_time",
+        ].to_numpy(dtype=float)
+
+        raw_segments.append(
+            (str(label), idx, raw)
+        )
+
+    if not raw_segments:
+        raise ValueError("Stage 값이 있는 구간이 없습니다.")
 
     segments: list[Segment] = []
     current = 0.0
 
     for label, idx, raw in raw_segments:
-        n = len(raw)
-        actual_duration = (
-            float(raw[-1] - raw[0])
-            if n > 1
-            else 0.0
-        )
+        actual_duration = _actual_duration(raw)
 
-        if n > 1 and actual_duration <= 0:
+        if actual_duration <= 0:
             raise ValueError(
                 f"{label} 구간의 Time 값이 올바르지 않습니다."
             )
@@ -194,7 +315,16 @@ def parse_excel(
         rest = is_rest(label)
         recovery = is_recovery(label)
         allout = is_allout(label)
+
         load = parse_load(label)
+        if (
+            allout
+            and allout_load is not None
+            and np.isfinite(float(allout_load))
+            and float(allout_load) > 0
+        ):
+            load = float(allout_load)
+
         standard_stage = (
             load is not None
             and not rest
@@ -204,24 +334,51 @@ def parse_excel(
 
         if standard_stage:
             duration = stage_duration_sec
-            if n == 1:
-                xvals = np.array([current + duration / 2])
+            if len(raw) == 1:
+                xvals = np.array(
+                    [current + duration / 2.0]
+                )
             else:
-                xvals = (
-                    current
-                    + ((raw - raw[0]) / actual_duration) * duration
-                )
+                raw_span = float(raw[-1] - raw[0])
+                if raw_span <= 0:
+                    xvals = np.linspace(
+                        current,
+                        current + duration,
+                        num=len(raw),
+                        endpoint=False,
+                    )
+                else:
+                    xvals = (
+                        current
+                        + ((raw - raw[0]) / raw_span)
+                        * duration
+                    )
         else:
-            if n < 2:
-                raise ValueError(
-                    f"{label} 구간의 실제 시간을 계산할 데이터가 부족합니다."
-                )
             duration = actual_duration
-            xvals = current + (raw - raw[0])
+            if len(raw) == 1:
+                xvals = np.array(
+                    [current + duration / 2.0]
+                )
+            else:
+                raw_span = float(raw[-1] - raw[0])
+                if raw_span <= 0:
+                    xvals = np.linspace(
+                        current,
+                        current + duration,
+                        num=len(raw),
+                        endpoint=False,
+                    )
+                else:
+                    scale = duration / raw_span
+                    xvals = (
+                        current
+                        + (raw - raw[0]) * scale
+                    )
 
         left = current
         right = current + duration
-        center = (left + right) / 2
+        center = (left + right) / 2.0
+
         df.loc[idx, "_x"] = xvals
 
         segments.append(
@@ -240,12 +397,14 @@ def parse_excel(
         )
         current = right
 
-    if not segments:
-        raise ValueError("Stage 값이 있는 구간이 없습니다.")
-
     rows = []
+
     for seg in segments:
-        if seg.load is None:
+        if (
+            seg.load is None
+            or seg.is_rest
+            or seg.is_recovery
+        ):
             continue
 
         group = df.loc[seg.indices]
@@ -254,17 +413,59 @@ def parse_excel(
 
         rows.append(
             {
-                "Stage": seg.label,
+                "Stage": (
+                    "All-Out"
+                    if seg.is_allout
+                    else seg.label
+                ),
                 "Load": seg.load,
                 "Duration_sec": seg.duration,
-                "HR_min": float(hr.min()) if not hr.empty else np.nan,
-                "HR_max": float(hr.max()) if not hr.empty else np.nan,
-                "HR_mean": float(hr.mean()) if not hr.empty else np.nan,
-                "VO2_min": float(vo2.min()) if not vo2.empty else np.nan,
-                "VO2_max": float(vo2.max()) if not vo2.empty else np.nan,
-                "VO2_mean": float(vo2.mean()) if not vo2.empty else np.nan,
+                "HR_min": (
+                    float(hr.min())
+                    if not hr.empty
+                    else np.nan
+                ),
+                "HR_max": (
+                    float(hr.max())
+                    if not hr.empty
+                    else np.nan
+                ),
+                "HR_mean": (
+                    float(hr.mean())
+                    if not hr.empty
+                    else np.nan
+                ),
+                "VO2_min": (
+                    float(vo2.min())
+                    if not vo2.empty
+                    else np.nan
+                ),
+                "VO2_max": (
+                    float(vo2.max())
+                    if not vo2.empty
+                    else np.nan
+                ),
+                "VO2_mean": (
+                    float(vo2.mean())
+                    if not vo2.empty
+                    else np.nan
+                ),
             }
         )
 
-    summary = pd.DataFrame(rows)
+    summary = pd.DataFrame(
+        rows,
+        columns=[
+            "Stage",
+            "Load",
+            "Duration_sec",
+            "HR_min",
+            "HR_max",
+            "HR_mean",
+            "VO2_min",
+            "VO2_max",
+            "VO2_mean",
+        ],
+    )
+
     return df, segments, summary
