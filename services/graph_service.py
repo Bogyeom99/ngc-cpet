@@ -403,11 +403,9 @@ def _lactate_x_for_stage(
     normalized = label.upper().replace("_", " ")
 
     if normalized in {"REST", "R"}:
-        rest_segments = [
-            seg for seg in segments if getattr(seg, "is_rest", False)
-        ]
-        if rest_segments:
-            return rest_segments[0].center
+        # Lactate "Rest" means the pre-exercise resting sample.
+        # It belongs in the gray padding before 00:00, not in any
+        # between-stage R segment found in the Data sheet.
         return -LEFT_PAD_SEC / 2
 
     exercise = [
