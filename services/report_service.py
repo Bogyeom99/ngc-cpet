@@ -41,6 +41,7 @@ def _text_html(value: str) -> str:
         value,
         tags=[
             "p",
+            "div",
             "br",
             "span",
             "strong",
@@ -440,8 +441,11 @@ body {{
   line-height: 1.45;
 }}
 .page1-comment p,
+.page1-comment div,
 .lactate-comment p,
-.editable-text p {{
+.lactate-comment div,
+.editable-text p,
+.editable-text div {{
   margin: 0;
   padding: 0;
 }}
