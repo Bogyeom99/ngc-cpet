@@ -12,3 +12,7 @@ alter table public.athletes enable row level security;
 
 grant all on table public.athletes to service_role;
 grant usage, select on sequence public.athletes_id_seq to service_role;
+
+
+alter table public.athlete_measurements
+add column if not exists stage_duration_min numeric(6,2) not null default 3.0;
