@@ -483,7 +483,7 @@ body {{
       <thead>
         <tr><th class="group-head" colspan="4">스테이지별 HR 범위</th></tr>
         <tr>
-          <th class="col-head">Speed</th>
+          <th class="col-head">{html.escape(str(data.get('load_name', 'Load')))}</th>
           <th class="col-head">HR range</th>
           <th class="col-head">HR mean</th>
           <th class="col-head">주요 Zone</th>
