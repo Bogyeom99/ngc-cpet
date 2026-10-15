@@ -180,3 +180,34 @@ def test_report_info_sections_default_to_visible():
 
     assert '<span class="title-chip">선수 정보</span>' in html
     assert '<span class="title-chip">선수 체격 및 신체조성</span>' in html
+
+
+
+def test_report_can_hide_title_and_header_sections():
+    data = _report_data()
+    data["show_report_title"] = False
+    data["show_athlete_info"] = False
+    data["show_body_info"] = False
+
+    html = build_report_html(
+        data,
+        b"graph",
+        None,
+        None,
+    )
+
+    assert "차세대스포츠과학지원센터 체력측정 결과" not in html
+    assert '<span class="title-chip">선수 정보</span>' not in html
+    assert '<span class="title-chip">선수 체격 및 신체조성</span>' not in html
+    assert '<span class="title-chip">운동 부하 검사 - KISS Protocol</span>' in html
+
+
+def test_report_title_defaults_to_visible():
+    html = build_report_html(
+        _report_data(),
+        b"graph",
+        None,
+        None,
+    )
+
+    assert "차세대스포츠과학지원센터 체력측정 결과" in html
