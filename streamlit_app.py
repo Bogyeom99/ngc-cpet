@@ -17,18 +17,30 @@ from services.athlete_store import (
     save_measurement,
 )
 from services.excel_export import build_excel_export
-from services.excel_parser import (
-    is_allout,
-    is_recovery,
-    is_rest,
-    parse_excel,
-    parse_load,
-    round_half_up,
-)
+from services import excel_parser
 from services.input_template import build_input_template, parse_lactate_sheet
 from services.graph_service import make_hr_vo2_graph, make_hr_vo2_lactate_graph, make_lactate_graph
 from services.lt_analysis import LactatePoint, estimate_lt
 from services.report_service import build_report_html, html_to_pdf
+
+
+round_half_up = excel_parser.round_half_up
+
+
+def is_rest(label: object) -> bool:
+    return excel_parser.is_rest(label)
+
+
+def is_recovery(label: object) -> bool:
+    return excel_parser.is_recovery(label)
+
+
+def is_allout(label: object) -> bool:
+    return excel_parser.is_allout(label)
+
+
+def parse_load(label: object) -> float | None:
+    return excel_parser.parse_load(label)
 
 
 st.set_page_config(page_title="NGC CPET", layout="wide")
@@ -410,13 +422,17 @@ with tab2:
 
         if uploaded is not None:
             try:
-                df, segments, summary = parse_excel(
+                df, segments, summary = excel_parser.parse_excel(
                     uploaded,
                     stage_duration_min=stage_duration_min,
+                    allout_load=max_load if max_load > 0 else None,
                 )
                 lactate_rows = parse_lactate_sheet(uploaded)
                 upload_token = hashlib.sha1(
                     uploaded.getvalue()
+                    + (
+                        f"|{load_type}|{stage_duration_min}|{max_load}"
+                    ).encode("utf-8")
                 ).hexdigest()[:12]
 
                 st.session_state.parsed = {
@@ -492,17 +508,35 @@ with tab3:
         st.info("검사 입력 탭에서 Excel 파일을 먼저 업로드하세요.")
 
     else:
-        exercise_segments = [
+        all_segments = parsed["segments"]
+        load_segments = [
             segment
-            for segment in parsed["segments"]
-            if segment.load is not None
+            for segment in all_segments
+            if (
+                segment.load is not None
+                and not segment.is_rest
+                and not segment.is_recovery
+            )
+        ]
+        explicit_allout = next(
+            (
+                segment
+                for segment in all_segments
+                if getattr(segment, "is_allout", False)
+            ),
+            None,
+        )
+        recovery_segments = [
+            segment
+            for segment in all_segments
+            if getattr(segment, "is_recovery", False)
         ]
 
         imported_lactate = parsed.get("lactate_rows", [])
         rest_lactate = None
         allout_lactate = None
         lactate_by_load = {}
-        recovery_lactates = []
+        recovery_lactate_map = {}
 
         for item in imported_lactate:
             stage_name = str(item.get("stage", "")).strip()
@@ -517,38 +551,66 @@ with tab3:
                 continue
 
             if is_recovery(stage_name):
-                recovery_lactates.append(
-                    {
-                        "Stage": stage_name,
-                        "Load": np.nan,
-                        "Lactate": value,
-                    }
-                )
+                recovery_lactate_map[
+                    stage_name.strip().lower()
+                ] = value
                 continue
 
             load_value = parse_load(stage_name)
             if load_value is not None:
-                lactate_by_load[round(float(load_value), 6)] = value
+                lactate_by_load[
+                    round(float(load_value), 6)
+                ] = value
 
-        stage_rows = []
+        initial_rows = []
+        has_rest = any(
+            segment.is_rest
+            for segment in all_segments
+        )
+        if has_rest or rest_lactate is not None:
+            initial_rows.append(
+                {
+                    "Stage": "Rest",
+                    "Load": np.nan,
+                    "Lactate": rest_lactate,
+                }
+            )
 
-        for i, segment in enumerate(exercise_segments):
-            is_last = i == len(exercise_segments) - 1
-            label = "AO" if is_last else segment.label
-            lactate_value = None
+        numeric_segments = [
+            segment
+            for segment in load_segments
+            if not getattr(segment, "is_allout", False)
+        ]
+
+        # Backward compatibility: if the file has no explicit All-Out segment,
+        # keep treating the final numeric exercise stage as All-Out.
+        fallback_allout = (
+            numeric_segments[-1]
+            if explicit_allout is None and numeric_segments
+            else None
+        )
+
+        for segment in numeric_segments:
+            is_fallback_allout = (
+                fallback_allout is not None
+                and segment is fallback_allout
+            )
+            label = (
+                "AO"
+                if is_fallback_allout
+                else segment.label
+            )
+            lactate_value = lactate_by_load.get(
+                round(float(segment.load), 6)
+            )
 
             if (
-                segment.load is not None
-                and round(float(segment.load), 6) in lactate_by_load
+                is_fallback_allout
+                and allout_lactate is not None
             ):
-                lactate_value = lactate_by_load[
-                    round(float(segment.load), 6)
-                ]
-
-            if is_last and allout_lactate is not None:
                 lactate_value = allout_lactate
 
-            stage_rows.append(
+            initial_rows.append(
                 {
                     "Stage": label,
                     "Load": segment.load,
@@ -556,23 +618,62 @@ with tab3:
                 }
             )
 
-        initial_rows = []
-        has_rest = any(
-            segment.is_rest
-            for segment in parsed["segments"]
-        )
-        if has_rest or rest_lactate is not None:
+        if explicit_allout is not None:
             initial_rows.append(
                 {
-                    "Stage": "rest",
-                    "Load": np.nan,
-                    "Lactate": rest_lactate,
+                    "Stage": "AO",
+                    "Load": (
+                        explicit_allout.load
+                        if explicit_allout.load is not None
+                        else (
+                            max_load
+                            if max_load > 0
+                            else np.nan
+                        )
+                    ),
+                    "Lactate": allout_lactate,
                 }
             )
 
-        initial_rows.extend(stage_rows)
-        initial_rows.extend(recovery_lactates)
-        rest_default = pd.DataFrame(initial_rows)
+        for segment in recovery_segments:
+            label = str(segment.label).strip()
+            imported_value = recovery_lactate_map.get(
+                label.lower()
+            )
+
+            initial_rows.append(
+                {
+                    "Stage": label,
+                    "Load": np.nan,
+                    "Lactate": imported_value,
+                }
+            )
+
+        # Lactate values may be measured at recovery time points even when the
+        # Data sheet contains one broad Recovery segment.
+        known_recovery_labels = {
+            str(row["Stage"]).strip().lower()
+            for row in initial_rows
+            if is_recovery(row["Stage"])
+        }
+        for item in imported_lactate:
+            label = str(item.get("stage", "")).strip()
+            if (
+                is_recovery(label)
+                and label.lower() not in known_recovery_labels
+            ):
+                initial_rows.append(
+                    {
+                        "Stage": label,
+                        "Load": np.nan,
+                        "Lactate": item.get("lactate"),
+                    }
+                )
+
+        rest_default = pd.DataFrame(
+            initial_rows,
+            columns=["Stage", "Load", "Lactate"],
+        )
 
         st.subheader("혈중 젖산염 입력")
         if imported_lactate:
@@ -627,7 +728,8 @@ with tab3:
             )
 
             if (
-                row["Stage"] != "rest"
+                not is_rest(row["Stage"])
+                and not is_recovery(row["Stage"])
                 and not pd.isna(row["Load"])
             ):
                 lt_points.append(
@@ -784,18 +886,44 @@ with tab4:
         stages = []
 
         for _, row in summary.iterrows():
-            hr_mean = float(row["HR_mean"])
+            hr_mean = pd.to_numeric(
+                row.get("HR_mean"),
+                errors="coerce",
+            )
+            hr_min = pd.to_numeric(
+                row.get("HR_min"),
+                errors="coerce",
+            )
+            hr_max_value = pd.to_numeric(
+                row.get("HR_max"),
+                errors="coerce",
+            )
+
+            if (
+                pd.isna(hr_mean)
+                or pd.isna(hr_min)
+                or pd.isna(hr_max_value)
+            ):
+                stages.append(
+                    {
+                        "stage": row["Stage"],
+                        "hr_range": "-",
+                        "hr_mean": "-",
+                        "zone": "-",
+                    }
+                )
+                continue
 
             stages.append(
                 {
                     "stage": row["Stage"],
                     "hr_range": (
-                        f"{round_half_up(row['HR_min'])}-"
-                        f"{round_half_up(row['HR_max'])}"
+                        f"{round_half_up(hr_min)}-"
+                        f"{round_half_up(hr_max_value)}"
                     ),
                     "hr_mean": round_half_up(hr_mean),
                     "zone": zone_for_hr(
-                        hr_mean,
+                        float(hr_mean),
                         meta["hrmax"],
                     ),
                 }
