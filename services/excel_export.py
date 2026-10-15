@@ -17,6 +17,9 @@ def _plain_text(value: str) -> str:
     value = value or ""
     value = re.sub(r"(?i)<br\s*/?>", "\n", value)
     value = re.sub(r"(?i)</p>\s*<p[^>]*>", "\n", value)
+    value = re.sub(r"(?i)</div>\s*<div[^>]*>", "\n", value)
+    value = re.sub(r"(?i)<div[^>]*>", "", value)
+    value = re.sub(r"(?i)</div>", "\n", value)
     value = re.sub(r"(?s)<[^>]+>", "", value)
     return html.unescape(value).strip()
 
