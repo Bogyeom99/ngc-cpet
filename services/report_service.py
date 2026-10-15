@@ -49,9 +49,11 @@ def _text_html(value: str) -> str:
             "i",
             "u",
             "s",
+            "font",
         ],
         attributes={
             "span": ["style"],
+            "font": ["color"],
         },
         css_sanitizer=css_sanitizer,
         strip=True,
@@ -63,6 +65,8 @@ def build_report_html(
     basic_graph: bytes,
     lactate_graph: bytes | None,
     combined_graph: bytes | None,
+    *,
+    editable: bool = False,
 ) -> str:
     stages = data.get("stages", [])
     zones = data.get("zones", [])
@@ -134,12 +138,30 @@ def build_report_html(
             + "% 고정</strong>"
         )
 
+    def edit_attrs(key: str) -> str:
+        if not editable:
+            return ""
+        return (
+            ' contenteditable="true"'
+            f' data-edit-key="{html.escape(key)}"'
+            ' spellcheck="true"'
+        )
+
+    editor_css = ""
+    if editable:
+        editor_css = """
+[data-edit-key][contenteditable="true"] {
+  outline: 1.5px dashed #8FB9DF;
+  outline-offset: 1.5px;
+}
+"""
+
     lt1_block = ""
     if data.get("lt1", {}).get("show"):
         lt1_block = f"""
         <div class="lt-section">
           <div class="lt-title">LT1 분석 결과 (제1젖산역치; 유산소 대사)</div>
-          <div class="editable-text">{_text_html(data.get("lt1_comment", ""))}</div>
+          <div class="editable-text"{edit_attrs("lt1_comment")}>{_text_html(data.get("lt1_comment", ""))}</div>
         </div>
         """
 
@@ -148,7 +170,7 @@ def build_report_html(
         lt2_block = f"""
         <div class="lt-section lt2-section">
           <div class="lt-title">LT2 분석 결과 (제2젖산역치; 무산소 대사)</div>
-          <div class="editable-text">{_text_html(data.get("lt2_comment", ""))}</div>
+          <div class="editable-text"{edit_attrs("lt2_comment")}>{_text_html(data.get("lt2_comment", ""))}</div>
         </div>
         """
 
@@ -439,6 +461,7 @@ body {{
   border-radius: 1.2mm;
   line-height: 1;
 }}
+{editor_css}
 </style>
 </head>
 <body>
@@ -516,7 +539,7 @@ body {{
     <img class="basic-graph" src="{_img_data(basic_graph)}">
   </div>
 
-  <div class="page1-comment">{_text_html(data.get("page1_comment", ""))}</div>
+  <div class="page1-comment"{edit_attrs("page1_comment")}>{_text_html(data.get("page1_comment", ""))}</div>
 </section>
 
 <section class="page page2">
@@ -532,7 +555,7 @@ body {{
 
   <div class="lactate-graph-box">{lactate_img}</div>
 
-  <div class="lactate-comment">{_text_html(data.get("lactate_comment", ""))}</div>
+  <div class="lactate-comment"{edit_attrs("lactate_comment")}>{_text_html(data.get("lactate_comment", ""))}</div>
 
   <div class="total-title"><span class="title-chip">총평</span></div>
 
