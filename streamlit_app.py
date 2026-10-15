@@ -950,6 +950,18 @@ with tab4:
         )
 
     else:
+        option_col1, option_col2 = st.columns(2)
+        show_athlete_info = option_col1.checkbox(
+            "결과지에 선수 정보 표시",
+            value=True,
+            key="report_show_athlete_info",
+        )
+        show_body_info = option_col2.checkbox(
+            "결과지에 선수 체격 및 신체조성 표시",
+            value=True,
+            key="report_show_body_info",
+        )
+
         summary = parsed["summary"]
         stages = []
 
@@ -1200,7 +1212,11 @@ with tab4:
             default_lt_comment(lt2_item, "LT2"),
         )
 
-        editor_key = f"report_editor_v2_{token}"
+        editor_key = (
+            f"report_editor_v3_{token}_"
+            f"athlete{int(show_athlete_info)}_"
+            f"body{int(show_body_info)}"
+        )
         editor_fields = {
             "page1_comment": page1_key,
             "lactate_comment": lactate_key,
@@ -1263,6 +1279,8 @@ with tab4:
             "lactates": analysis["chart_points"],
             "lt1": lt1_item,
             "lt2": lt2_item,
+            "show_athlete_info": show_athlete_info,
+            "show_body_info": show_body_info,
             "page1_comment": page1_comment,
             "lactate_comment": lactate_comment,
             "lt1_comment": lt1_comment,
