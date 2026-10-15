@@ -304,7 +304,27 @@ def parse_excel(
     segments: list[Segment] = []
     current = 0.0
 
-    for label, idx, raw in raw_segments:
+    explicit_allout_present = any(
+        is_allout(label)
+        for label, _, _ in raw_segments
+    )
+    numeric_segment_indexes = [
+        i
+        for i, (label, _, _) in enumerate(raw_segments)
+        if (
+            parse_load(label) is not None
+            and not is_rest(label)
+            and not is_recovery(label)
+            and not is_allout(label)
+        )
+    ]
+    last_numeric_segment_index = (
+        numeric_segment_indexes[-1]
+        if numeric_segment_indexes
+        else None
+    )
+
+    for segment_index, (label, idx, raw) in enumerate(raw_segments):
         actual_duration = _actual_duration(raw)
 
         if actual_duration <= 0:
@@ -314,11 +334,19 @@ def parse_excel(
 
         rest = is_rest(label)
         recovery = is_recovery(label)
-        allout = is_allout(label)
+        explicit_allout = is_allout(label)
+        allout = (
+            explicit_allout
+            or (
+                not explicit_allout_present
+                and last_numeric_segment_index is not None
+                and segment_index == last_numeric_segment_index
+            )
+        )
 
         load = parse_load(label)
         if (
-            allout
+            explicit_allout
             and allout_load is not None
             and np.isfinite(float(allout_load))
             and float(allout_load) > 0
