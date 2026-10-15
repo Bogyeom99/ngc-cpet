@@ -231,6 +231,8 @@ with tab2:
 
         if st.session_state.get("measurement_token") != measurement_token:
             st.session_state.measurement_token = measurement_token
+            st.session_state.parsed = None
+            st.session_state.pop("analysis", None)
 
             if selected_measurement:
                 st.session_state.measurement_date = dt.date.fromisoformat(
