@@ -2,6 +2,8 @@ import pandas as pd
 
 from services.excel_parser import Segment
 from services.graph_service import (
+    LEFT_PAD_SEC,
+    _lactate_x_for_stage,
     make_hr_vo2_graph,
     make_hr_vo2_lactate_graph,
 )
@@ -79,3 +81,19 @@ def test_combined_graph_renders_recovery_lactate():
     assert png.startswith(b"\x89PNG")
     assert threshold_hr["LT1"] is not None
     assert threshold_hr["LT2"] is not None
+
+
+def test_resting_lactate_stays_before_zero_even_with_stage_rest():
+    segments = [
+        Segment("4", [0], 0, 180, 90, 180, 4.0, False, False, False),
+        Segment("R", [1], 180, 240, 210, 60, None, True, False, False),
+        Segment("5.5", [2], 240, 420, 330, 180, 5.5, False, False, True),
+    ]
+
+    x = _lactate_x_for_stage(
+        segments,
+        "Rest",
+        None,
+    )
+
+    assert x == -LEFT_PAD_SEC / 2
