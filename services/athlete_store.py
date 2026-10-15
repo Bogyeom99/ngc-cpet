@@ -7,12 +7,15 @@ from supabase import Client, create_client
 
 
 def is_configured() -> bool:
-    return (
-        "SUPABASE_URL" in st.secrets
-        and "SUPABASE_SERVICE_ROLE_KEY" in st.secrets
-        and bool(st.secrets["SUPABASE_URL"])
-        and bool(st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
-    )
+    try:
+        return (
+            "SUPABASE_URL" in st.secrets
+            and "SUPABASE_SERVICE_ROLE_KEY" in st.secrets
+            and bool(st.secrets["SUPABASE_URL"])
+            and bool(st.secrets["SUPABASE_SERVICE_ROLE_KEY"])
+        )
+    except Exception:
+        return False
 
 
 @st.cache_resource
