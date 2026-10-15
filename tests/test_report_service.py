@@ -76,3 +76,22 @@ def test_colored_text_survives_report_sanitizing():
 
     assert "color:#D7191C" in html or "color: #D7191C" in html
     assert "강조" in html
+
+
+def test_report_uses_simplified_typography_scale():
+    html = build_report_html(
+        _report_data(),
+        b"graph",
+        None,
+        None,
+    )
+
+    assert ".main-title {" in html
+    assert "font-size: 20pt;" in html
+    assert ".section-title {" in html
+    assert "font-size: 11pt;" in html
+    assert ".section-right {" in html
+    assert "font-size: 9pt;" in html
+    assert ".stage-table {" in html
+    assert ".editable-text {" in html
+    assert html.count("font-size: 10pt;") >= 7
