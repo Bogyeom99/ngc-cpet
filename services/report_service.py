@@ -197,6 +197,14 @@ def build_report_html(
 }
 """
 
+    main_title_block = ""
+    if data.get("show_report_title", True):
+        main_title_block = (
+            '<div class="main-title">'
+            '차세대스포츠과학지원센터 체력측정 결과'
+            '</div>'
+        )
+
     athlete_info_block = ""
     if data.get("show_athlete_info", True):
         athlete_info_block = f"""
@@ -566,7 +574,7 @@ body {{
 
 <section class="page page1">
   <div class="page1-logo">{logo_html}</div>
-  <div class="main-title">차세대스포츠과학지원센터 체력측정 결과</div>
+  {main_title_block}
 
   {athlete_info_block}
   {body_info_block}
