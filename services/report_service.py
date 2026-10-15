@@ -197,6 +197,37 @@ def build_report_html(
 }
 """
 
+    athlete_info_block = ""
+    if data.get("show_athlete_info", True):
+        athlete_info_block = f"""
+  <div class="section-line">
+    <div class="section-title"><span class="title-chip">선수 정보</span></div>
+    <div class="section-right"><strong>측정날짜:</strong>&nbsp; {html.escape(str(data['test_date']))}</div>
+  </div>
+  <table class="data-table info-table">
+    <tr>
+      <td class="info-label">이름</td><td>{html.escape(str(data['name']))}</td>
+      <td class="info-label">성별</td><td>{html.escape(str(data['sex']))}</td>
+      <td class="info-label">구분</td><td>{html.escape(str(data['category']))}</td>
+    </tr>
+  </table>
+"""
+
+    body_info_block = ""
+    if data.get("show_body_info", True):
+        body_info_block = f"""
+  <div class="section-line">
+    <div class="section-title"><span class="title-chip">선수 체격 및 신체조성</span></div>
+  </div>
+  <table class="data-table info-table">
+    <tr>
+      <td class="info-label">신장(cm)</td><td>{html.escape(str(data['height']))}</td>
+      <td class="info-label">체중(kg)</td><td>{html.escape(str(data['weight']))}</td>
+      <td class="info-label">BMI(kg/m²)</td><td>{html.escape(str(data['bmi']))}</td>
+    </tr>
+  </table>
+"""
+
     lt1_block = ""
     if data.get("lt1", {}).get("show"):
         lt1_block = f"""
@@ -537,28 +568,8 @@ body {{
   <div class="page1-logo">{logo_html}</div>
   <div class="main-title">차세대스포츠과학지원센터 체력측정 결과</div>
 
-  <div class="section-line">
-    <div class="section-title"><span class="title-chip">선수 정보</span></div>
-    <div class="section-right"><strong>측정날짜:</strong>&nbsp; {html.escape(str(data['test_date']))}</div>
-  </div>
-  <table class="data-table info-table">
-    <tr>
-      <td class="info-label">이름</td><td>{html.escape(str(data['name']))}</td>
-      <td class="info-label">성별</td><td>{html.escape(str(data['sex']))}</td>
-      <td class="info-label">구분</td><td>{html.escape(str(data['category']))}</td>
-    </tr>
-  </table>
-
-  <div class="section-line">
-    <div class="section-title"><span class="title-chip">선수 체격 및 신체조성</span></div>
-  </div>
-  <table class="data-table info-table">
-    <tr>
-      <td class="info-label">신장(cm)</td><td>{html.escape(str(data['height']))}</td>
-      <td class="info-label">체중(kg)</td><td>{html.escape(str(data['weight']))}</td>
-      <td class="info-label">BMI(kg/m²)</td><td>{html.escape(str(data['bmi']))}</td>
-    </tr>
-  </table>
+  {athlete_info_block}
+  {body_info_block}
 
   <div class="section-line">
     <div class="section-title"><span class="title-chip">운동 부하 검사 - KISS Protocol</span></div>
