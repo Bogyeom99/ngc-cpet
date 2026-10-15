@@ -746,14 +746,22 @@ with tab3:
             meta["show_lt2"],
         )
 
+        lactate_png = None
         if chart_points:
-            lactate_png = make_lactate_graph(chart_points)
-            st.image(
-                lactate_png,
-                use_container_width=True,
-            )
+            try:
+                lactate_png = make_lactate_graph(
+                    chart_points
+                )
+                st.image(
+                    lactate_png,
+                    use_container_width=True,
+                )
+            except Exception as exc:
+                st.warning(
+                    "혈중 젖산염 그래프를 생성하지 못했습니다: "
+                    f"{exc}"
+                )
         else:
-            lactate_png = None
             st.info(
                 "혈중 젖산염 값을 하나 이상 입력하면 "
                 "그래프가 표시됩니다."
@@ -770,39 +778,62 @@ with tab3:
             else None
         )
 
+        basic_png = None
+        combined_analysis_png = None
+        combined_report_png = None
+        threshold_hr = {
+            "LT1": None,
+            "LT2": None,
+        }
+
         if meta["hrmax"] > 0:
-            basic_png, _ = make_hr_vo2_graph(
-                parsed["df"],
-                parsed["segments"],
-                meta["hrmax"],
-                None,
-                None,
-            )
+            try:
+                basic_png, _ = make_hr_vo2_graph(
+                    parsed["df"],
+                    parsed["segments"],
+                    meta["hrmax"],
+                    None,
+                    None,
+                )
 
-            combined_analysis_png, threshold_hr = make_hr_vo2_lactate_graph(
-                parsed["df"],
-                parsed["segments"],
-                meta["hrmax"],
-                chart_points,
-                lt1_load,
-                lt2_load,
-                lt_label_mode="report",
-            )
+                (
+                    combined_analysis_png,
+                    threshold_hr,
+                ) = make_hr_vo2_lactate_graph(
+                    parsed["df"],
+                    parsed["segments"],
+                    meta["hrmax"],
+                    chart_points,
+                    lt1_load,
+                    lt2_load,
+                    lt_label_mode="report",
+                )
 
-            combined_report_png, _ = make_hr_vo2_lactate_graph(
-                parsed["df"],
-                parsed["segments"],
-                meta["hrmax"],
-                chart_points,
-                lt1_load,
-                lt2_load,
-                lt_label_mode="report",
-            )
+                combined_report_png, _ = (
+                    make_hr_vo2_lactate_graph(
+                        parsed["df"],
+                        parsed["segments"],
+                        meta["hrmax"],
+                        chart_points,
+                        lt1_load,
+                        lt2_load,
+                        lt_label_mode="report",
+                    )
+                )
+            except Exception as exc:
+                st.error(
+                    "HR 및 VO2 그래프 생성 중 오류가 발생했습니다. "
+                    f"입력 자료를 확인하세요: {exc}"
+                )
 
             if meta["show_lt1"]:
                 if lt1 and lt1.valid:
                     hr = threshold_hr.get("LT1")
-                    hr_text = f" | {round_half_up(hr)} bpm" if hr is not None else ""
+                    hr_text = (
+                        f" | {round_half_up(hr)} bpm"
+                        if hr is not None
+                        else ""
+                    )
                     st.success(
                         f"LT1 = {lt1.threshold_load:.2f} "
                         f"{meta['load_unit']}{hr_text}"
@@ -816,7 +847,11 @@ with tab3:
             if meta["show_lt2"]:
                 if lt2 and lt2.valid:
                     hr = threshold_hr.get("LT2")
-                    hr_text = f" | {round_half_up(hr)} bpm" if hr is not None else ""
+                    hr_text = (
+                        f" | {round_half_up(hr)} bpm"
+                        if hr is not None
+                        else ""
+                    )
                     st.success(
                         f"LT2 = {lt2.threshold_load:.2f} "
                         f"{meta['load_unit']}{hr_text}"
@@ -827,26 +862,25 @@ with tab3:
                         f"{lt2.reason if lt2 else '계산 결과 없음'}"
                     )
 
-            st.markdown("#### 1페이지용 HR 및 VO2 그래프")
-            st.image(
-                basic_png,
-                use_container_width=True,
-            )
+            if basic_png is not None:
+                st.markdown(
+                    "#### 1페이지용 HR 및 VO2 그래프"
+                )
+                st.image(
+                    basic_png,
+                    use_container_width=True,
+                )
 
-            st.markdown("#### 2페이지용 HR, VO2 및 Lactate 그래프")
-            st.image(
-                combined_analysis_png,
-                use_container_width=True,
-            )
+            if combined_analysis_png is not None:
+                st.markdown(
+                    "#### 2페이지용 HR, VO2 및 Lactate 그래프"
+                )
+                st.image(
+                    combined_analysis_png,
+                    use_container_width=True,
+                )
 
         else:
-            basic_png = None
-            combined_analysis_png = None
-            combined_report_png = None
-            threshold_hr = {
-                "LT1": None,
-                "LT2": None,
-            }
             st.warning(
                 "최대 심박수를 입력하면 "
                 "HR 및 VO2 그래프를 생성할 수 있습니다."
