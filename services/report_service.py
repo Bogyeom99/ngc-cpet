@@ -126,6 +126,14 @@ def build_report_html(
         else ""
     )
 
+    grade_note = ""
+    if str(data.get("load_name", "")) == "속도":
+        grade_note = (
+            "<strong>* 경사도 "
+            + html.escape(str(data.get("grade_percent", "")))
+            + "% 고정</strong>"
+        )
+
     lt1_block = ""
     if data.get("lt1", {}).get("show"):
         lt1_block = f"""
@@ -464,7 +472,7 @@ body {{
 
   <div class="section-line">
     <div class="section-title"><span class="title-chip">운동 부하 검사 - KISS Protocol</span></div>
-    <div class="section-right"><strong>* 경사도 {html.escape(str(data['grade_percent']))}% 고정</strong></div>
+    <div class="section-right">{grade_note}</div>
   </div>
   <table class="data-table measure-table">
     <tr>
