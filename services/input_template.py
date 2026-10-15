@@ -115,7 +115,7 @@ def build_input_template() -> bytes:
         ("필수 열", "Time / VO2/kg / Heart Rate / Stage"),
         (
             "Stage 작성",
-            "일반 운동 Stage에는 3, 4.5, 6 또는 100, 150, 200처럼 부하값만 입력합니다. 부하 단위는 웹에서 Speed 또는 Power로 선택합니다.",
+            "운동 Stage에는 3, 4.5, 6 또는 100, 150, 200처럼 실제 부하값만 입력합니다. 부하 단위는 웹에서 Speed 또는 Power로 선택하며, 마지막 숫자 Stage는 자동으로 All-Out으로 처리됩니다.",
         ),
         (
             "Time 작성",
@@ -124,7 +124,7 @@ def build_input_template() -> bytes:
         ("Lactate 시트", "각 Stage 종료 후 측정한 혈중 젖산염 값을 입력합니다."),
         (
             "Lactate Stage 작성",
-            "Rest가 있다면 Rest를 입력하고, 각 운동강도와 All-Out 및 Recovery 측정값을 순서대로 입력합니다. Rest가 없으면 생략할 수 있습니다.",
+            "Rest가 있다면 Rest를 입력하고, 각 운동강도는 Data 시트와 같은 숫자로 입력합니다. 마지막 운동강도 숫자가 All-Out이며, 이후 Recovery 측정값을 입력할 수 있습니다. Rest가 없으면 생략할 수 있습니다.",
         ),
         (
             "Lactate 작성",
@@ -132,7 +132,7 @@ def build_input_template() -> bytes:
         ),
         (
             "주의",
-            "Data 시트의 숫자 Stage는 웹에서 설정한 일반 운동 Stage 시간으로 자동 정규화됩니다. Rest, All-Out, Recovery는 기록된 실제 시간을 사용합니다.",
+            "마지막 숫자 Stage를 제외한 일반 운동 Stage는 웹에서 설정한 시간으로 자동 정규화됩니다. 마지막 숫자 Stage는 All-Out으로 자동 인식해 실제 기록시간을 사용하며, Rest와 Recovery도 실제 기록시간을 사용합니다.",
         ),
     ]
 
@@ -158,14 +158,14 @@ def build_input_template() -> bytes:
     guide.cell(row=row, column=1).font = Font(bold=True)
     row += 1
     examples = [
-        ("Data Stage 예시", "Speed: 3 → R → 4.5 → R → 6 / Power: 100 → R → 150 → R → 200"),
+        ("Data Stage 예시", "Speed: 3 → R → 4.5 → R → 6 → 7.5 / Power: 100 → R → 150 → R → 200 → 250"),
         (
             "Lactate Stage",
-            "Rest → 3 → 4.5 → 6 → ... → All-Out → Recovery 1min → Recovery 5min",
+            "Rest → 3 → 4.5 → 6 → ... → 16 → Recovery 1min → Recovery 5min",
         ),
         (
             "Lactate",
-            "0.90 → 1.10 → 1.25 → 1.55 → 2.10 → ...",
+            "0.90 → 1.10 → 1.25 → 1.55 → ... → 7.80 → 6.20 → 3.10",
         ),
     ]
     for label, text in examples:
