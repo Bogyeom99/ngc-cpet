@@ -71,10 +71,13 @@ def parse_load(label: object) -> float | None:
 
 
 def time_to_seconds(value: object) -> float:
-    """Convert one time-like value to seconds.
+    """Convert one time-like value to elapsed seconds.
 
-    Numeric values are handled by _time_series_to_seconds so that elapsed
-    seconds starting at 0, 1, 2 are not mistaken for Excel day fractions.
+    Supported examples:
+    - Excel time cells such as 12:00:00 AM
+    - text in mm:ss form such as 05:30
+    - text in hh:mm:ss form such as 00:05:30
+    - numeric elapsed seconds
     """
     if pd.isna(value):
         return np.nan
@@ -90,7 +93,34 @@ def time_to_seconds(value: object) -> float:
     if isinstance(value, (int, float, np.number)):
         return float(value)
 
-    td = pd.to_timedelta(str(value), errors="coerce")
+    text = str(value).strip()
+
+    # Plain text with two fields is treated as elapsed mm:ss.
+    match = re.fullmatch(
+        r"(\d+):(\d{1,2}(?:\.\d+)?)",
+        text,
+    )
+    if match:
+        minutes = float(match.group(1))
+        seconds = float(match.group(2))
+        if seconds < 60:
+            return minutes * 60.0 + seconds
+        return np.nan
+
+    # Plain text with three fields is treated as elapsed hh:mm:ss.
+    match = re.fullmatch(
+        r"(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)",
+        text,
+    )
+    if match:
+        hours = float(match.group(1))
+        minutes = float(match.group(2))
+        seconds = float(match.group(3))
+        if minutes < 60 and seconds < 60:
+            return hours * 3600.0 + minutes * 60.0 + seconds
+        return np.nan
+
+    td = pd.to_timedelta(text, errors="coerce")
     return np.nan if pd.isna(td) else td.total_seconds()
 
 
