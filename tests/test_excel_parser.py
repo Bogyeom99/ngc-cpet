@@ -232,3 +232,56 @@ def test_rest_duration_can_be_shorter_than_recorded_rest():
 
     rest = next(seg for seg in segments if seg.is_rest)
     assert rest.duration == 30.0
+
+
+
+def test_plain_mm_ss_text_time_is_supported():
+    data = pd.DataFrame(
+        {
+            "Time": ["00:00", "00:01", "00:02", "05:30", "05:31"],
+            "VO2/kg": [10, 11, 12, 20, 21],
+            "Heart Rate": [90, 92, 94, 130, 132],
+            "Stage": ["All-Out"] * 5,
+        }
+    )
+
+    df, _, _ = parse_excel(
+        _excel_bytes(data),
+        allout_load=12,
+    )
+
+    assert df["_raw_time"].tolist() == [
+        0.0,
+        1.0,
+        2.0,
+        330.0,
+        331.0,
+    ]
+
+
+def test_excel_time_objects_and_plain_text_can_both_be_used():
+    data = pd.DataFrame(
+        {
+            "Time": [
+                dt.time(0, 0, 0),
+                dt.time(0, 0, 1),
+                "00:02",
+                "00:03",
+            ],
+            "VO2/kg": [10, 11, 12, 13],
+            "Heart Rate": [90, 92, 94, 96],
+            "Stage": ["All-Out"] * 4,
+        }
+    )
+
+    df, _, _ = parse_excel(
+        _excel_bytes(data),
+        allout_load=12,
+    )
+
+    assert df["_raw_time"].tolist() == [
+        0.0,
+        1.0,
+        2.0,
+        3.0,
+    ]
